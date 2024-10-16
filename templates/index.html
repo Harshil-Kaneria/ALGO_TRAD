@@ -3,29 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kite Profile</title>
+    <title>Kite Trading App</title>
     <link href="/static/tailwind.min.css" rel="stylesheet">
     <style>
-        /* Optional: Add some custom styles if needed */
         .instruments-item {
             transition: background-color 0.2s;
         }
         .instruments-item:hover {
-            background-color: #f0f9ff; /* Light blue on hover */
+            background-color: #f0f9ff;
+        }
+        .dropdown {
+            display: none;
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ddd;
+            z-index: 1;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .dropdown-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .dropdown-item:hover {
+            background-color: #f0f9ff;
         }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div class="bg-white rounded-lg shadow-lg p-8 w-1/2">
-        <h1 class="text-3xl font-bold text-center mb-6">Kite Profile</h1>
-        <form method="post" class="mb-6">
-            <div class="mb-4">
-                <label for="enctoken" class="block text-sm font-medium text-gray-700">Enter your Kite token:</label>
-                <input type="text" id="enctoken" name="enctoken" class="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring focus:ring-blue-500" value="pMZCmdtaPULDJ+m0TVaPi1FdY2bmzN9NNTWu3ls0H2Gn801n9NK7giv9N6mva3LZl+TjYZe10FBQWGLkGBKe5TuzfrQm6MjhNawtMDowbE8KuPpcG/7Cdw==" required>
-            </div>
-            <button type="submit" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">Submit</button>
-        </form>
-        
+    <div class="bg-white rounded-lg shadow-lg p-8 w-1/2 relative">
+        <h1 class="text-3xl font-bold text-center mb-6">Kite Trading App</h1>
+
         {% if profile_data %}
             <div class="mb-6">
                 <h2 class="text-2xl font-semibold mb-4">Profile Data</h2>
@@ -36,47 +45,110 @@
                     <p class="text-lg"><strong>User ID:</strong> {{ profile_data.user_id }}</p>
                 </div>
             </div>
+        {% endif %}
 
-            <h2 class="text-2xl font-semibold mb-4">Instruments</h2>
-            <input type="text" id="filter" placeholder="Filter by Token, Symbol, or Name" class="mb-4 p-2 border border-gray-300 rounded-md w-full" onkeyup="filterInstruments()">
-            <div id="instruments-list" class="bg-gray-50 p-4 rounded border border-gray-300 max-h-60 overflow-auto">
-                {% for instrument in instruments_data %}
-                <div class="instruments-item border-b border-gray-200 py-2">
-                    <p><strong>Token:</strong> {{ instrument.instrument_token }}</p>
-                    <p><strong>Symbol:</strong> {{ instrument.tradingsymbol }}</p>
-                    <p><strong>Name:</strong> {{ instrument.name }}</p>
-                    <p><strong>Exchange:</strong> {{ instrument.exchange }}</p>
-                    <p><strong>Instrument Type:</strong> {{ instrument.instrument_type }}</p>
-                    <p><strong>Last Price:</strong> {{ instrument.last_price }}</p>
-                    <p><strong>Lot Size:</strong> {{ instrument.lot_size }}</p>
-                    <p><strong>Tick Size:</strong> {{ instrument.tick_size }}</p>
-                    <p><strong>Segment:</strong> {{ instrument.segment }}</p>
-                    <p><strong>Strike:</strong> {{ instrument.strike }}</p>
-                    <p><strong>Expiry:</strong> {{ instrument.expiry or 'N/A' }}</p>
-                </div>                                
-                {% endfor %}
+        {% if not profile_data %}
+        <form method="post" class="mb-6">
+            <div class="mb-4">
+                <label for="enctoken" class="block text-sm font-medium text-gray-700">Enter your Kite token:</label>
+                <input type="text" id="enctoken" name="enctoken" class="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring focus:ring-blue-500" value="pMZCmdtaPULDJ+m0TVaPi1FdY2bmzN9NNTWu3ls0H2Gn801n9NK7giv9N6mva3LZl+TjYZe10FBQWGLkGBKe5TuzfrQm6MjhNawtMDowbE8KuPpcG/7Cdw==" required>
             </div>
+            <button type="submit" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">Submit</button>
+        </form>
+        {% endif %}
+
+        {% if profile_data %}
+        <form method="post" class="mb-6" onsubmit="return checkMarketStatus()">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="mb-4">
+                    <label for="exchange" class="block text-sm font-medium text-gray-700">Exchange:</label>
+                    <select id="exchange" name="exchange" class="mt-1 block w-full border border-gray-300 rounded-md p-2" required onchange="fetchInstruments(this.value)">
+                        <option value="NSE" selected>NSE</option>
+                        <option value="BSE">BSE</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="name" class="block text-sm font-medium text-gray-700">Stock Name:</label>
+                    <input type="text" id="name" name="name" class="mt-1 block w-full border border-gray-300 rounded-md p-2" autocomplete="off" oninput="filterInstruments()" required>
+                    <div id="dropdown" class="dropdown"></div>
+                </div>
+                <div class="mb-4">
+                    <label for="quantity" class="block text-sm font-medium text-gray-700">Quantity:</label>
+                    <input type="number" id="quantity" name="quantity" class="mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+                </div>
+                <div class="mb-4">
+                    <label for="profit_percentage" class="block text-sm font-medium text-gray-700">Profit Percentage:</label>
+                    <input type="number" id="profit_percentage" name="profit_percentage" class="mt-1 block w-full border border-gray-300 rounded-md p-2" value="0.75" step="0.01" required>
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">Submit Order</button>
+        </form>
+        {% endif %}
+
+        {% if message %}
+            <div class="mt-4 text-red-600">{{ message }}</div>
         {% endif %}
     </div>
 
     <script>
+        let instruments = [];
+
+        function fetchInstruments(exchange) {
+            fetch(`/instruments?exchange=${exchange}&enctoken={{ enctoken }}`)
+                .then(response => response.json())
+                .then(data => {
+                    instruments = data;
+                    document.getElementById('name').disabled = false; // Enable stock name input
+                });
+        }
+
         function filterInstruments() {
-            const input = document.getElementById('filter').value.toLowerCase();
-            const instrumentsList = document.getElementById('instruments-list');
-            const instruments = instrumentsList.getElementsByClassName('instruments-item');
+            const input = document.getElementById('name').value.toLowerCase();
+            const dropdown = document.getElementById('dropdown');
+            dropdown.innerHTML = '';
+            if (input.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+            }
 
-            for (let i = 0; i < instruments.length; i++) {
-                const token = instruments[i].getElementsByTagName('strong')[0].nextSibling.nodeValue.toLowerCase();
-                const symbol = instruments[i].getElementsByTagName('strong')[1].nextSibling.nodeValue.toLowerCase();
-                const name = instruments[i].getElementsByTagName('strong')[2].nextSibling.nodeValue.toLowerCase();
+            const filteredInstruments = instruments.filter(instrument =>
+                instrument.tradingsymbol.toLowerCase().includes(input) || 
+                instrument.name.toLowerCase().includes(input)
+            );
 
-                if (token.includes(input) || symbol.includes(input) || name.includes(input)) {
-                    instruments[i].style.display = "";
-                } else {
-                    instruments[i].style.display = "none";
-                }
+            if (filteredInstruments.length > 0) {
+                filteredInstruments.forEach(instrument => {
+                    const div = document.createElement('div');
+                    div.className = 'dropdown-item';
+                    div.textContent = `${instrument.tradingsymbol} - ${instrument.name}`;
+                    div.onclick = () => {
+                        document.getElementById('name').value = instrument.tradingsymbol;
+                        document.getElementById('name').disabled = false;  // Enable the input
+                        dropdown.style.display = 'none';
+                    };
+                    dropdown.appendChild(div);
+                });
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
             }
         }
+
+        function checkMarketStatus() {
+            const now = new Date();
+            const weekday = now.getDay();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            if (weekday >= 1 && weekday <= 5 && (hours === 9 && minutes >= 25 || hours < 15)) {
+                return true;  // Market is open
+            } else {
+                alert("The market is currently closed. Please wait until tomorrow.");
+                return false;  // Prevent form submission
+            }
+        }
+
+        // Fetch instruments initially for NSE
+        fetchInstruments('NSE');
     </script>
 </body>
 </html>
