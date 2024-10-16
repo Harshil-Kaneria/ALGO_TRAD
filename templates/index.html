@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kite Profile</title>
+    <link href="/static/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Optional: Add some custom styles if needed */
+        .instruments-item {
+            transition: background-color 0.2s;
+        }
+        .instruments-item:hover {
+            background-color: #f0f9ff; /* Light blue on hover */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white rounded-lg shadow-lg p-8 w-1/2">
+        <h1 class="text-3xl font-bold text-center mb-6">Kite Profile</h1>
+        <form method="post" class="mb-6">
+            <div class="mb-4">
+                <label for="enctoken" class="block text-sm font-medium text-gray-700">Enter your Kite token:</label>
+                <input type="text" id="enctoken" name="enctoken" class="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring focus:ring-blue-500" value="pMZCmdtaPULDJ+m0TVaPi1FdY2bmzN9NNTWu3ls0H2Gn801n9NK7giv9N6mva3LZl+TjYZe10FBQWGLkGBKe5TuzfrQm6MjhNawtMDowbE8KuPpcG/7Cdw==" required>
+            </div>
+            <button type="submit" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">Submit</button>
+        </form>
+        
+        {% if profile_data %}
+            <div class="mb-6">
+                <h2 class="text-2xl font-semibold mb-4">Profile Data</h2>
+                <div class="bg-gray-50 p-4 rounded border border-gray-300 mb-4">
+                    <img src="{{ profile_data.avatar_url }}" alt="Avatar" class="w-32 h-32 rounded-full mx-auto mb-4 shadow-md">
+                    <p class="text-lg"><strong>Name:</strong> {{ profile_data.user_name }}</p>
+                    <p class="text-lg"><strong>Email:</strong> {{ profile_data.email }}</p>
+                    <p class="text-lg"><strong>User ID:</strong> {{ profile_data.user_id }}</p>
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-semibold mb-4">Instruments</h2>
+            <input type="text" id="filter" placeholder="Filter by Token, Symbol, or Name" class="mb-4 p-2 border border-gray-300 rounded-md w-full" onkeyup="filterInstruments()">
+            <div id="instruments-list" class="bg-gray-50 p-4 rounded border border-gray-300 max-h-60 overflow-auto">
+                {% for instrument in instruments_data %}
+                <div class="instruments-item border-b border-gray-200 py-2">
+                    <p><strong>Token:</strong> {{ instrument.instrument_token }}</p>
+                    <p><strong>Symbol:</strong> {{ instrument.tradingsymbol }}</p>
+                    <p><strong>Name:</strong> {{ instrument.name }}</p>
+                    <p><strong>Exchange:</strong> {{ instrument.exchange }}</p>
+                    <p><strong>Instrument Type:</strong> {{ instrument.instrument_type }}</p>
+                    <p><strong>Last Price:</strong> {{ instrument.last_price }}</p>
+                    <p><strong>Lot Size:</strong> {{ instrument.lot_size }}</p>
+                    <p><strong>Tick Size:</strong> {{ instrument.tick_size }}</p>
+                    <p><strong>Segment:</strong> {{ instrument.segment }}</p>
+                    <p><strong>Strike:</strong> {{ instrument.strike }}</p>
+                    <p><strong>Expiry:</strong> {{ instrument.expiry or 'N/A' }}</p>
+                </div>                                
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function filterInstruments() {
+            const input = document.getElementById('filter').value.toLowerCase();
+            const instrumentsList = document.getElementById('instruments-list');
+            const instruments = instrumentsList.getElementsByClassName('instruments-item');
+
+            for (let i = 0; i < instruments.length; i++) {
+                const token = instruments[i].getElementsByTagName('strong')[0].nextSibling.nodeValue.toLowerCase();
+                const symbol = instruments[i].getElementsByTagName('strong')[1].nextSibling.nodeValue.toLowerCase();
+                const name = instruments[i].getElementsByTagName('strong')[2].nextSibling.nodeValue.toLowerCase();
+
+                if (token.includes(input) || symbol.includes(input) || name.includes(input)) {
+                    instruments[i].style.display = "";
+                } else {
+                    instruments[i].style.display = "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>
