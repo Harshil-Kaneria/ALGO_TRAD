@@ -139,7 +139,7 @@
             const weekday = now.getDay();
             const hours = now.getHours();
             const minutes = now.getMinutes();
-            if (weekday >= 1 && weekday <= 5 && (hours === 9 && minutes >= 25 || hours < 15)) {
+            if (weekday >= 1 && weekday <= 5 && (hours === 9 && minutes >= 30 || hours < 15)) {
                 return true;  // Market is open
             } else {
                 alert("The market is currently closed. Please wait until tomorrow.");

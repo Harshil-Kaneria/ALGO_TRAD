@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 def is_market_open():
     now = datetime.datetime.now()
-    return now.weekday() < 5 and now.time() >= datetime.time(9, 25) and now.time() <= datetime.time(15, 0)
+    return now.weekday() < 5 and now.time() >= datetime.time(9, 30) and now.time() <= datetime.time(15, 0)
 
 @app.route('/instruments', methods=['GET'])
 def get_instruments():
