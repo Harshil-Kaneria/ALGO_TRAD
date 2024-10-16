@@ -43,6 +43,16 @@
                     <p class="text-lg"><strong>Name:</strong> {{ profile_data.user_name }}</p>
                     <p class="text-lg"><strong>Email:</strong> {{ profile_data.email }}</p>
                     <p class="text-lg"><strong>User ID:</strong> {{ profile_data.user_id }}</p>
+                    {% if enctoken %}
+                        <form class="bg-gray-100 p-4 rounded border border-gray-400 mt-4" method="post" action="/sell_previous_orders">
+                            <input type="hidden" name="enctoken" value="{{ enctoken }}">
+                            <div class="mb-4">
+                                <label for="profit_percentage" class="block text-sm font-medium text-gray-700">Profit Percentage:</label>
+                                <input type="number" id="profit_percentage" name="profit_percentage" class="mt-1 block w-full border border-gray-300 rounded-md p-2" value="0.75" step="0.01" required>
+                            </div>
+                            <button type="submit" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition">Sell Previous Orders</button>
+                        </form>
+                    {% endif %}
                 </div>
             </div>
         {% endif %}
@@ -80,9 +90,13 @@
                     <label for="profit_percentage" class="block text-sm font-medium text-gray-700">Profit Percentage:</label>
                     <input type="number" id="profit_percentage" name="profit_percentage" class="mt-1 block w-full border border-gray-300 rounded-md p-2" value="0.75" step="0.01" required>
                 </div>
+                <div class="mb-4">
+                    <label for="check_pivot" class="text-sm font-medium text-gray-700">Check Pivot Point:</label>
+                    <input type="checkbox" id="check_pivot" name="check_pivot" checked>
+                </div>
             </div>
             <button type="submit" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">Submit Order</button>
-        </form>
+        </form>        
         {% endif %}
 
         {% if message %}
