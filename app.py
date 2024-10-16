@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, redirect
 from kite_trade import KiteApp
 from kiteconnect import KiteTicker
 import datetime
@@ -14,6 +14,11 @@ def calculate_target_price(entry_price, target_profit_percentage):
 
 def calculate_pivot_point(previous_high, previous_low, previous_close):
     return (previous_high + previous_low + previous_close) / 3
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    enctoken = ''
+    return redirect('/')
 
 @app.route('/instruments', methods=['GET'])
 def get_instruments():
