@@ -17,7 +17,7 @@ function App() {
   // Fetch user profile data
   const fetchProfileData = async () => {
     try {
-      const response = await axios.get(`${process.env.API_BASE_URL}/api/profile`);
+      const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/profile`);
       setProfileData(response.data.profile_data);
       setIsMarketOpen(response.data.market_status);
       if (response.data.market_status == false) {
@@ -31,7 +31,7 @@ function App() {
   // Fetch instruments based on selected exchange
   const fetchInstruments = async () => {
     try {
-      const response = await axios.get(`${process.env.API_BASE_URL}/api/instruments?exchange=${exchange}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/instruments?exchange=${exchange}`);
       setInstruments(response.data);
     } catch (error) {
       console.error('Error fetching instruments:', error);
@@ -41,7 +41,7 @@ function App() {
   // Place order function
   const placeOrder = async () => {
     try {
-      const response = await axios.post(`${process.env.API_BASE_URL}/api/order`, {
+      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/api/order`, {
         name: stockName,
         quantity,
         exchange,

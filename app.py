@@ -16,6 +16,11 @@ ENCTOKEN = os.getenv('ENCTOKEN')
 # Global variable to hold the KiteApp instance
 kite_instance = KiteApp(enctoken=ENCTOKEN)
 
+def get_kite_instance():
+    if kite_instance is None:
+        return None
+    return kite_instance
+
 def is_market_open():
     now = datetime.datetime.now()
     return True
@@ -26,11 +31,6 @@ def calculate_target_price(entry_price, target_profit_percentage):
 
 def calculate_pivot_point(previous_high, previous_low, previous_close):
     return (previous_high + previous_low + previous_close) / 3
-
-def get_kite_instance():
-    if kite_instance is None:
-        return None
-    return kite_instance
 
 @app.route('/api/profile', methods=['GET'])
 def profile():
@@ -58,6 +58,7 @@ def place_order():
     quantity = data.get('quantity')
     exchange = data.get('exchange').upper()
     target_profit_percentage = data.get('profit_percentage')
+    enctoken = ENCTOKEN
 
     if not is_market_open():
         return jsonify({"message": "Market is closed."}), 400
@@ -74,8 +75,16 @@ def place_order():
             instrument_token = instrument['instrument_token']
             break
 
+    if not instrument_token:
+        return jsonify({"message": "Instrument not found."}), 404
+
     # Fetch historical data
-    historical_data = kite.historical_data(instrument_token, datetime.datetime.now() - datetime.timedelta(days=1), datetime.datetime.now(), "day")
+    historical_data = kite.historical_data(
+        instrument_token,
+        datetime.datetime.now() - datetime.timedelta(days=1),
+        datetime.datetime.now(),
+        "day"
+    )
     previous_high = max(data['high'] for data in historical_data)
     previous_low = min(data['low'] for data in historical_data)
     previous_close = historical_data[-1]['close']
@@ -83,16 +92,43 @@ def place_order():
 
     current_price = kite.ltp(f"{exchange}:{stock_name}")[f"{exchange}:{stock_name}"]['last_price']
     if current_price > pivot_point:
+        # Place CNC order
+        
+        # order = kite.place_order(
+        #     variety=kite.VARIETY_REGULAR,
+        #     exchange=exchange,
+        #     tradingsymbol=stock_name,
+        #     transaction_type=kite.TRANSACTION_TYPE_BUY,
+        #     quantity=1,
+        #     product=kite.PRODUCT_CNC,
+        #     order_type=kite.ORDER_TYPE_MARKET
+        # )
+        # entry_price = order['average_price']
+        # target_price = calculate_target_price(entry_price, target_profit_percentage)
+
+        print("Buy Order:", current_price)
         target_price = calculate_target_price(current_price, target_profit_percentage)
 
         # Start WebSocket to monitor price
         user_id = kite.profile()["user_id"]
-        kws = KiteTicker(api_key="TradeViaPython", access_token=f"{ENCTOKEN}&user_id={user_id}")
+        kws = KiteTicker(api_key="TradeViaPython", access_token=enctoken+"&user_id="+user_id)
 
         def on_ticks(ws, ticks):
             for tick in ticks:
                 price = tick['last_price']
                 if price >= target_price:
+                    # Trigger sell order when target price is hit
+                    
+                    # sell_order = kite.place_order(
+                    #     variety=kite.VARIETY_REGULAR,
+                    #     exchange=exchange,
+                    #     tradingsymbol=stock_name,
+                    #     transaction_type=kite.TRANSACTION_TYPE_SELL,
+                    #     quantity=1,
+                    #     product=kite.PRODUCT_CNC,
+                    #     order_type=kite.ORDER_TYPE_MARKET
+                    # )
+
                     print("Sell Order:", price)
                     kws.unsubscribe([instrument_token])
                     break
