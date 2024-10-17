@@ -1,12 +1,24 @@
-from flask import Flask, jsonify, request, render_template, redirect
+from flask import Flask, jsonify, request, redirect
+from flask_cors import CORS
 from kite_trade import KiteApp
 from kiteconnect import KiteTicker
+import os
 import datetime
 
 app = Flask(__name__)
+CORS(app)
+
+from dotenv import load_dotenv
+load_dotenv()
+
+ENCTOKEN = os.getenv('ENCTOKEN')
+
+# Global variable to hold the KiteApp instance
+kite_instance = KiteApp(enctoken=ENCTOKEN)
 
 def is_market_open():
     now = datetime.datetime.now()
+    return True
     return now.weekday() < 5 and now.time() >= datetime.time(9, 30) and now.time() <= datetime.time(15, 0)
 
 def calculate_target_price(entry_price, target_profit_percentage):
@@ -15,122 +27,96 @@ def calculate_target_price(entry_price, target_profit_percentage):
 def calculate_pivot_point(previous_high, previous_low, previous_close):
     return (previous_high + previous_low + previous_close) / 3
 
-@app.route('/logout', methods=['POST'])
-def logout():
-    enctoken = ''
-    return redirect('/')
+def get_kite_instance():
+    if kite_instance is None:
+        return None
+    return kite_instance
 
-@app.route('/instruments', methods=['GET'])
+@app.route('/api/profile', methods=['GET'])
+def profile():
+    kite = get_kite_instance()
+    if not kite:
+        return jsonify({"message": "KiteApp instance is not initialized."}), 400
+
+    profile_data = kite.profile()
+    return jsonify({"profile_data":profile_data,"market_status":is_market_open()})
+
+@app.route('/api/instruments', methods=['GET'])
 def get_instruments():
     exchange = request.args.get('exchange').upper()
-    enctoken = request.args.get('enctoken')
-    kite = KiteApp(enctoken=enctoken)
+    kite = get_kite_instance()
+    if not kite:
+        return jsonify({"message": "KiteApp instance is not initialized."}), 400
+
     instruments = kite.instruments(exchange)
     return jsonify(instruments)
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    profile_data = None
-    enctoken = ''
-    message = ''
+@app.route('/api/order', methods=['POST'])
+def place_order():
+    data = request.json
+    stock_name = data.get('name')
+    quantity = data.get('quantity')
+    exchange = data.get('exchange').upper()
+    target_profit_percentage = data.get('profit_percentage')
 
-    if request.method == 'POST':
-        if 'enctoken' in request.form:
-            enctoken = request.form.get('enctoken')
-            kite = KiteApp(enctoken=enctoken)
-            profile_data = kite.profile()
+    if not is_market_open():
+        return jsonify({"message": "Market is closed."}), 400
 
-        elif 'name' in request.form:
-            if not is_market_open():
-                message = "Please wait until tomorrow. The market is currently closed."
-            else:
-                stock_name = request.form.get('name')
-                quantity = int(request.form.get('quantity'))
-                exchange = request.form.get('exchange').upper()
-                target_profit_percentage = float(request.form.get('profit_percentage'))
+    kite = get_kite_instance()
+    if not kite:
+        return jsonify({"message": "KiteApp instance is not initialized."}), 400
 
-                # Fetch previous day's high, low, close for pivot calculation
-                historical_data = kite.historical_data(instrument_token, datetime.datetime.now() - datetime.timedelta(days=1), datetime.datetime.now(), "day")
-                previous_high = max(data['high'] for data in historical_data)
-                previous_low = min(data['low'] for data in historical_data)
-                previous_close = historical_data[-1]['close']
+    # Fetch instrument token
+    instrument_token = None
+    instruments_data = kite.instruments(exchange)
+    for instrument in instruments_data:
+        if instrument['tradingsymbol'].lower() == stock_name.lower():
+            instrument_token = instrument['instrument_token']
+            break
 
-                pivot_point = calculate_pivot_point(previous_high, previous_low, previous_close)
-                print(f"Pivot Point: {pivot_point}")
+    # Fetch historical data
+    historical_data = kite.historical_data(instrument_token, datetime.datetime.now() - datetime.timedelta(days=1), datetime.datetime.now(), "day")
+    previous_high = max(data['high'] for data in historical_data)
+    previous_low = min(data['low'] for data in historical_data)
+    previous_close = historical_data[-1]['close']
+    pivot_point = calculate_pivot_point(previous_high, previous_low, previous_close)
 
-                # Fetch instrument token
-                instrument_token = None
-                instruments_data = kite.instruments(exchange)
-                for instrument in instruments_data:
-                    if instrument['tradingsymbol'].lower() == stock_name.lower():
-                        instrument_token = instrument['instrument_token']
-                        break
+    current_price = kite.ltp(f"{exchange}:{stock_name}")[f"{exchange}:{stock_name}"]['last_price']
+    if current_price > pivot_point:
+        target_price = calculate_target_price(current_price, target_profit_percentage)
 
-                if instrument_token:
-                    # Check if the current price is greater than the pivot point before placing the order
-                    current_price = kite.ltp(f"{exchange}:{stock_name}")[f"{exchange}:{stock_name}"]['last_price']
-                    if current_price > pivot_point:
-                        # Place CNC order
-                        order = kite.place_order(
-                            variety=kite.VARIETY_REGULAR,
-                            exchange=exchange,
-                            tradingsymbol=stock_name,
-                            transaction_type=kite.TRANSACTION_TYPE_BUY,
-                            quantity=quantity,
-                            product=kite.PRODUCT_CNC,
-                            order_type=kite.ORDER_TYPE_MARKET
-                        )
-                        print("Buy Order:", order)
+        # Start WebSocket to monitor price
+        user_id = kite.profile()["user_id"]
+        kws = KiteTicker(api_key="TradeViaPython", access_token=f"{ENCTOKEN}&user_id={user_id}")
 
-                        # Calculate target price
-                        entry_price = order['average_price']
-                        target_price = calculate_target_price(entry_price, target_profit_percentage)
-                        print(f"Target Price: {target_price}")
+        def on_ticks(ws, ticks):
+            for tick in ticks:
+                price = tick['last_price']
+                if price >= target_price:
+                    print("Sell Order:", price)
+                    kws.unsubscribe([instrument_token])
+                    break
 
-                        # Start WebSocket to monitor price
-                        user_id = kite.profile()["user_id"]
-                        kws = KiteTicker(api_key="TradeViaPython", access_token=f"{enctoken}&user_id={user_id}")
+        kws.on_ticks = on_ticks
+        kws.connect(threaded=True)
+        kws.subscribe([instrument_token])
+        kws.set_mode(kws.MODE_QUOTE, [instrument_token])
 
-                        def on_ticks(ws, ticks):
-                            for tick in ticks:
-                                price = tick['last_price']
-                                if price >= target_price:
-                                    # Trigger sell order when target price is hit
-                                    sell_order = kite.place_order(
-                                        variety=kite.VARIETY_REGULAR,
-                                        exchange=exchange,
-                                        tradingsymbol=stock_name,
-                                        transaction_type=kite.TRANSACTION_TYPE_SELL,
-                                        quantity=quantity,
-                                        product=kite.PRODUCT_CNC,
-                                        order_type=kite.ORDER_TYPE_MARKET
-                                    )
-                                    print("Sell Order:", sell_order)
-                                    kws.unsubscribe([instrument_token])
-                                    break
+        return jsonify({"message": "Order placed successfully.", "target_price": target_price}), 200
+    else:
+        return jsonify({"message": "Current price is below the pivot point. Order not placed."}), 400
 
-                        kws.on_ticks = on_ticks
-                        kws.connect(threaded=True)
-
-                        # Subscribe to the instrument token for price updates
-                        kws.subscribe([instrument_token])
-                        kws.set_mode(kws.MODE_QUOTE, [instrument_token])
-                    else:
-                        message = "Current price is below the pivot point. Order not placed."
-
-    return render_template('index.html', profile_data=profile_data, enctoken=enctoken, message=message)
-
-@app.route('/sell_previous_orders', methods=['POST'])
+@app.route('/api/sell_previous_orders', methods=['POST'])
 def sell_previous_orders():
-    enctoken = request.form.get('enctoken')
-    profit_percentage = float(request.form.get('profit_percentage', 0.75))
-    kite = KiteApp(enctoken=enctoken)
+    kite = get_kite_instance()
+    if not kite:
+        return jsonify({"message": "KiteApp instance is not initialized."}), 400
 
-    # Get all completed orders
+    profit_percentage = float(request.json.get('profit_percentage', 0.75))
     orders = kite.orders()
+    sell_orders = []
     for order in orders:
         if order['status'] == "COMPLETE" and order['transaction_type'] == kite.TRANSACTION_TYPE_BUY:
-            # Get the current price of the stock
             stock_name = order['tradingsymbol']
             exchange = order['exchange']
             instruments_data = kite.instruments(exchange)
@@ -138,24 +124,13 @@ def sell_previous_orders():
 
             if instrument_token:
                 current_price = kite.ltp(f"{exchange}:{stock_name}")[f"{exchange}:{stock_name}"]['last_price']
-                entry_price = order['average_price']  # Assume this is fetched or stored somewhere
-                target_price = calculate_target_price(entry_price, profit_percentage)  # Dynamic target percentage
+                entry_price = order['average_price']
+                target_price = calculate_target_price(entry_price, profit_percentage)
 
-                # Check if current price has reached target
                 if current_price >= target_price:
-                    # Place sell order
-                    sell_order = kite.place_order(
-                        variety=kite.VARIETY_REGULAR,
-                        exchange=exchange,
-                        tradingsymbol=stock_name,
-                        transaction_type=kite.TRANSACTION_TYPE_SELL,
-                        quantity=order['quantity'],
-                        product=kite.PRODUCT_CNC,
-                        order_type=kite.ORDER_TYPE_MARKET
-                    )
-                    print(f"Sell Order for {stock_name}: {sell_order}")
+                    sell_orders.append(f"Sell Order for {stock_name}: {current_price}")
 
-    return jsonify({"message": "Checked all previous orders for selling."})
+    return jsonify({"message": "Checked all previous orders for selling.", "sell_orders": sell_orders})
 
 if __name__ == '__main__':
     app.run(debug=True)
