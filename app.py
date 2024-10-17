@@ -89,8 +89,14 @@ def place_order():
     previous_low = min(data['low'] for data in historical_data)
     previous_close = historical_data[-1]['close']
     pivot_point = calculate_pivot_point(previous_high, previous_low, previous_close)
+    print("previous_high:", previous_high)
+    print("previous_low:", previous_low)
+    print("previous_close:", previous_close)
+    print("pivot_point:", pivot_point)
+    print("hd:", historical_data[-1])
 
-    current_price = kite.ltp(f"{exchange}:{stock_name}")[f"{exchange}:{stock_name}"]['last_price']
+    ltp_data = kite.ltp(f"{exchange}:{stock_name}")
+    current_price = ltp_data[f"{exchange}:{stock_name}"]['last_price']
     if current_price > pivot_point:
         # Place CNC order
         
@@ -141,32 +147,6 @@ def place_order():
         return jsonify({"message": "Order placed successfully.", "target_price": target_price}), 200
     else:
         return jsonify({"message": "Current price is below the pivot point. Order not placed."}), 400
-
-@app.route('/api/sell_previous_orders', methods=['POST'])
-def sell_previous_orders():
-    kite = get_kite_instance()
-    if not kite:
-        return jsonify({"message": "KiteApp instance is not initialized."}), 400
-
-    profit_percentage = float(request.json.get('profit_percentage', 0.75))
-    orders = kite.orders()
-    sell_orders = []
-    for order in orders:
-        if order['status'] == "COMPLETE" and order['transaction_type'] == kite.TRANSACTION_TYPE_BUY:
-            stock_name = order['tradingsymbol']
-            exchange = order['exchange']
-            instruments_data = kite.instruments(exchange)
-            instrument_token = next((inst['instrument_token'] for inst in instruments_data if inst['tradingsymbol'] == stock_name), None)
-
-            if instrument_token:
-                current_price = kite.ltp(f"{exchange}:{stock_name}")[f"{exchange}:{stock_name}"]['last_price']
-                entry_price = order['average_price']
-                target_price = calculate_target_price(entry_price, profit_percentage)
-
-                if current_price >= target_price:
-                    sell_orders.append(f"Sell Order for {stock_name}: {current_price}")
-
-    return jsonify({"message": "Checked all previous orders for selling.", "sell_orders": sell_orders})
-
+    
 if __name__ == '__main__':
     app.run(debug=True)

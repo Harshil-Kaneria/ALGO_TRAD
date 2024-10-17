@@ -197,12 +197,13 @@ function App() {
                     Submit This Order
                   </button>
 
-                  <button
+                  {/* <button
                     onClick={placeOrder}
                     className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
                   >
                     Submit Previous Order
-                  </button>
+                  </button> */}
+                  
                 </div>
 
               </div>
