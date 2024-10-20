@@ -107,6 +107,7 @@ def place_order():
 
     # ltp_data = kite.ltp(f"{exchange}:{stock_name}")
     # current_price = ltp_data[f"{exchange}:{stock_name}"]['last_price']
+
     current_price = 1930;
     target_price = calculate_target_price(current_price, target_profit_percentage)
 
@@ -119,25 +120,28 @@ def place_order():
         if current_price >= r1 - (r1 - pp) * 0.1:
             return jsonify({"message": "DON'T BUY IT BECAUSE IT'S CLOSER TO R1"}), 400
         else:
-            print("Buy Order:", current_price)
+
+            print('Buy - ',current_price)
+
             user_id = kite.profile()["user_id"]
             kws = KiteTicker(api_key="TradeViaPython", access_token=enctoken+"&user_id="+user_id)
-            print('kws',kws)
             
             def on_ticks(ws, ticks):
-                print(ticks)
+                print('ticks',ticks[0]["last_price"])
+                if target_price<=ticks[0]["last_price"]:
+                    print('Sell - ',target_price)
+                    kws.unsubscribe([instrument_token])
 
             kws.on_ticks = on_ticks
             kws.connect(threaded=True)
             while not kws.is_connected():
                 time.sleep(1)
             print("WebSocket : Connected")
-            kws.subscribe([256265, 260105, 738561, 5633])
-            kws.set_mode(kws.MODE_QUOTE, [256265, 260105, 738561, 5633])
-            time.sleep(30)
-            kws.unsubscribe([256265, 260105, 738561, 5633])
-
-            return jsonify({"message": "Order placed successfully.", "target_price": target_price}), 2000
+            kws.subscribe([instrument_token])
+            kws.set_mode(kws.MODE_QUOTE, [instrument_token])
+            
+            
+            return jsonify({"message": "Order placed successfully."}), 200
     
 if __name__ == '__main__':
     app.run(debug=True)
