@@ -1,0 +1,11 @@
+[GET] - http://localhost:5000/api/profile
+
+[GET] - http://localhost:5000/api/instruments?exchange=NSE
+
+[POST] - http://localhost:5000/api/order
+{
+    "name": "INFY",
+    "quantity": "1",
+    "exchange": "NSE",
+    "profit_percentage": 0.75
+}
