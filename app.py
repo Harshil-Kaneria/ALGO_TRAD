@@ -316,6 +316,69 @@ def get_gainers_api():
     gainers = get_top_gainers()
     return jsonify(gainers)
 
+def get_stock_details(symbol):
+    try:
+        # For Indian stocks, we need to append ".NS" for NSE listings
+        ticker = yf.Ticker(f"{symbol}.NS")
+        info = ticker.info
+        
+        if not info:
+            raise ValueError(f"No information found for symbol {symbol}")
+        
+        # Get historical data for pivot point calculation
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=5)
+        hist = ticker.history(start=start_date, end=end_date)
+        
+        if len(hist) < 2:
+            raise ValueError(f"Not enough historical data to calculate pivot points for {symbol}")
+        
+        # Calculate pivot points using the previous day's data
+        previous_day = hist.iloc[-2]
+        pivot_points = calculate_advanced_pivot(previous_day['High'], previous_day['Low'], previous_day['Close'])
+        
+        # Current price
+        current_price = info.get('currentPrice', hist.iloc[-1]['Close'])
+        
+        # Determine position relative to pivot points
+        position = "At Pivot Point"
+        for level in ['s3', 's2', 's1', 'pp', 'r1', 'r2', 'r3']:
+            if current_price < pivot_points[level]:
+                position = f"Between {level.upper()} and {('r1' if level == 'pp' else 'pp' if level == 's1' else f's{int(level[1])+1}').upper()}"
+                break
+        if current_price > pivot_points['r3']:
+            position = "Above R3"
+        
+        return {
+            'symbol': symbol,
+            'company': info.get('longName', 'N/A'),
+            'price': current_price,
+            'change': f"{info.get('regularMarketChangePercent', 0):.2f}%",
+            'pivot_points': pivot_points,
+            'position': position
+        }
+    except ValueError as ve:
+        print(f"ValueError in get_stock_details for {symbol}: {str(ve)}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error in get_stock_details for {symbol}: {str(e)}")
+        return None
+
+@app.route('/api/search/<symbol>')
+def search_stock(symbol):
+    try:
+        stock_info = get_stock_details(symbol)
+        if not stock_info:
+            return jsonify({'error': f"Unable to fetch details for {symbol}. Please ensure the symbol is correct and try again."}), 404
+        
+        return jsonify(stock_info)
+    
+    except Exception as e:
+        print(f"Error searching stock {symbol}: {e}")
+        return jsonify({
+            'error': f"Error searching stock {symbol}: {str(e)}"
+        }), 400
+
 @app.route('/api/scrape/<symbol>')
 def scrape_stock(symbol):
     try:
