@@ -230,40 +230,49 @@ function App() {
                   </div>
                 </div>
 
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold mb-4">Top Gainers</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {gainers.map((gainer, index) => (
-                      <div key={index} className="bg-gray-100 p-4 rounded-lg shadow">
-                        <h3 className="text-lg font-semibold">{gainer.symbol} - {gainer.company}</h3>
-                        <p>Price: {gainer.price}</p>
-                        <p>Change: {gainer.change}</p>
-                        <button
-                          onClick={() => startScraping(gainer.symbol)}
-                          disabled={isScrapingStarted}
-                          className="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
-                        >
-                          {isScrapingStarted && selectedGainer === gainer.symbol ? 'Scraping...' : 'Start Scraping'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {selectedGainer && (
+                {gainers.length > 0 && (<>
                   <div className="mb-6">
-                    <h2 className="text-2xl font-bold mb-4">News and Sentiment for {selectedGainer}</h2>
-                    <ul className="list-disc pl-5">
-                      {news.map((item, index) => (
-                        <li key={index} className="mb-2">
-                          {item} - <span className={`font-bold ${sentiment[index] === 'positive' ? 'text-green-600' : sentiment[index] === 'negative' ? 'text-red-600' : 'text-yellow-600'}`}>
-                            Sentiment: {sentiment[index]}
-                          </span>
-                        </li>
+                    <h2 className="text-2xl font-bold mb-4">Top Gainers</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {gainers.map((gainer, index) => (
+                        <div key={index} className="bg-gray-100 p-4 rounded-lg shadow">
+                          <h3 className="text-lg font-semibold">{gainer.symbol} - {gainer.company}</h3>
+                          <p>Price: {gainer.price}</p>
+                          <p>Change: {gainer.change}</p>
+                          <button
+                            onClick={() => startScraping(gainer.symbol)}
+                            disabled={isScrapingStarted}
+                            className="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
+                          >
+                            {isScrapingStarted && selectedGainer === gainer.symbol ? 'Scraping...' : 'Start Scraping'}
+                          </button>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
-                )}
+                </>)}
+
+                {news.length > 0 && (<>
+                  {selectedGainer && (
+                    <div className="mb-6">
+                      <h2 className="text-2xl font-bold mb-4">News and Sentiment for {selectedGainer}</h2>
+                      <ul className="list-disc pl-5">
+                        {news.map((item, index) => (
+                          <li key={index} className="mb-2">
+                            {item.title}
+                            <br />
+                            <a href={item.url} target="_blank" rel="noopener noreferrer">Read More</a>
+                            <br /><span className={`font-bold ${sentiment[index].sentiment == 'POSITIVE' ? 'text-green-600' : sentiment[index].sentiment == 'NEGATIVE' ? 'text-red-600' : 'text-yellow-600'}`}>
+                              Sentiment: {sentiment[index].sentiment}<br />
+                              Score: {sentiment[index].score}
+                            </span>
+                            <hr />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>)}
               </>
             )}
           </div>

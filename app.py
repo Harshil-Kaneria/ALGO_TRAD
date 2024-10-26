@@ -12,6 +12,7 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from dotenv import load_dotenv
+from transformers import pipeline
 
 app = Flask(__name__)
 CORS(app)
@@ -67,7 +68,7 @@ def get_top_gainers():
             return []
         
         gainers = []
-        for row in table.find_all('tr')[1:6]:
+        for row in table.find_all('tr')[1:11]:
             cells = row.find_all('td')
             if len(cells) >= 4:
                 gainers.append({
@@ -85,55 +86,63 @@ def get_top_gainers():
         return []
 
 def scrape_stock_news(symbol):
-    url = f"https://finance.yahoo.com/quote/{symbol}/latest-news"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
-    }
-    
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        print(f"Error fetching news: {response.status_code}")
+    try:
+        # Create a Ticker object
+        ticker = yf.Ticker(symbol)
+        
+        # Fetch news
+        news = ticker.news
+        print('news', news[0])
+        # Process and return the first 5 news items
+        news_items = []
+        for item in news[:5]:
+            news_items.append({
+                'title': item['title'],
+                'url': item['link']
+            })
+        
+        return news_items
+    except Exception as e:
+        print(f"Error fetching news for {symbol}: {e}")
         return []
-    
-    soup = BeautifulSoup(response.text, 'html.parser')
-    
-    # Debugging: Print the soup to check the content
-    print(soup.prettify())  # Uncomment for detailed HTML output
-    
-    news_items = []
-    # Check the class names again on the actual page
-    for item in soup.find_all('h3', class_='Mb(5px)'):
-        news_items.append(item.get_text(strip=True))
-    
-    return news_items[:5]
 
+sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
 def analyze_sentiment(news_items):
-    if not news_items:  # Check if the input list is empty
-        return []  # Return an empty list if there are no news items
+    if not news_items:
+        return []
 
-    vectorizer = TfidfVectorizer()
-    clf = MultinomialNB()
-    
-    train_data = [
-        ("Stock price soars", "positive"),
-        ("Company reports losses", "negative"),
-        ("Neutral market performance", "neutral")
-    ]
-    
-    X_train = vectorizer.fit_transform([x[0] for x in train_data])
-    y_train = [x[1] for x in train_data]
-    
-    clf.fit(X_train, y_train)
-    
-    X_test = vectorizer.transform(news_items)
-    
-    # Check if X_test is empty
-    if X_test.shape[0] == 0:
-        return []  # Return an empty list if there's nothing to predict
+    sentiments = []
+    for item in news_items:
+        try:
+            # Fetch the full article content
+            response = requests.get(item['url'], timeout=10)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extract the main text content (this may need adjustment based on the specific news site structure)
+            paragraphs = soup.find_all('p')
+            full_text = ' '.join([p.get_text() for p in paragraphs])
+            
+            # Truncate text if it's too long (BERT models typically have a max length of 512 tokens)
+            max_length = 500  # Adjust as needed
+            truncated_text = ' '.join(full_text.split()[:max_length])
+            
+            # Analyze sentiment
+            result = sentiment_analyzer(truncated_text)[0]
+            
+            sentiments.append({
+                'title': item['title'],
+                'sentiment': result['label'],
+                'score': result['score']
+            })
+        except Exception as e:
+            print(f"Error analyzing sentiment for {item['title']}: {str(e)}")
+            sentiments.append({
+                'title': item['title'],
+                'sentiment': 'NEUTRAL',
+                'score': 0.5
+            })
 
-    predictions = clf.predict(X_test)
-    
-    return predictions.tolist()
+    return sentiments
 
 @app.route('/api/profile', methods=['GET'])
 def profile():
@@ -268,7 +277,6 @@ def get_gainers_api():
 @app.route('/api/scrape/<symbol>')
 def scrape_stock(symbol):
     news_items = scrape_stock_news(symbol)
-    print('news_items',news_items)
     sentiment = analyze_sentiment(news_items)
     return jsonify({
         'news': news_items,
