@@ -4,7 +4,7 @@ from flask_cors import CORS
 from kite_trade import KiteApp
 from kiteconnect import KiteTicker
 import os
-import datetime
+from datetime import datetime, timedelta
 import yfinance as yf
 from bs4 import BeautifulSoup
 import requests
@@ -13,6 +13,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from dotenv import load_dotenv
 from transformers import pipeline
+import requests
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 CORS(app)
@@ -29,7 +31,7 @@ def get_kite_instance():
     return kite_instance
 
 def is_market_open():
-    now = datetime.datetime.now()
+    now = datetime.now()
     return True
     return now.weekday() < 5 and datetime.time(9, 15) <= now.time() <= datetime.time(15, 30)
 
@@ -46,10 +48,11 @@ def calculate_advanced_pivot(previous_high, previous_low, previous_close):
     r2 = pp + (previous_high - previous_low)
     r3 = previous_high + 2 * (pp - previous_low)
     
-    return pp, s1, s2, s3, r1, r2, r3
-
-import requests
-from bs4 import BeautifulSoup
+    return {
+        'pp': pp,
+        'r1': r1, 'r2': r2, 'r3': r3,
+        's1': s1, 's2': s2, 's3': s3
+    }
 
 def get_top_gainers():
     url = "https://finance.yahoo.com/markets/stocks/gainers/"
@@ -68,15 +71,54 @@ def get_top_gainers():
             return []
         
         gainers = []
-        for row in table.find_all('tr')[1:11]:
+        for row in table.find_all('tr')[1:6]:
             cells = row.find_all('td')
             if len(cells) >= 4:
+
+                ticker = yf.Ticker(cells[0].text.strip().split()[0])
+                info = ticker.info
+                
+                # Get historical data for pivot point calculation
+                end_date = datetime.now()
+                start_date = end_date - timedelta(days=5)  # Get 5 days of data to ensure we have enough historical data
+                hist = ticker.history(start=start_date, end=end_date)
+                
+                if len(hist) < 2:
+                    raise ValueError("Not enough historical data to calculate pivot points")
+                
+                # Calculate pivot points using the previous day's data
+                previous_day = hist.iloc[-2]
+                pivot_points = calculate_advanced_pivot(previous_day['High'], previous_day['Low'], previous_day['Close'])
+                
+                # Current price
+                current_price = info.get('currentPrice', hist.iloc[-1]['Close'])
+                
+                # Determine position relative to pivot points
+                position = "At Pivot Point"
+                for level in ['s3', 's2', 's1', 'pp', 'r1', 'r2', 'r3']:
+                    if current_price < pivot_points[level]:
+                        position = f"Between {level.upper()} and {('r1' if level == 'pp' else 'pp' if level == 's1' else f's{int(level[1])+1}').upper()}"
+                        break
+                if current_price > pivot_points['r3']:
+                    position = "Above R3"
+                
+                stock_info = {
+                    'symbol': cells[0].text.strip().split()[0],
+                    'company': info.get('longName', 'N/A'),
+                    'price': current_price,
+                    'change': f"{info.get('regularMarketChangePercent', 0):.2f}%",
+                    'pivot_points': pivot_points,
+                    'position': position
+                }
+
                 gainers.append({
                     'symbol': cells[0].text.strip().split()[0],
                     'company': ' '.join(cells[0].text.strip().split()[1:]),
                     'price': cells[1].text.strip(),
-                    'change': cells[2].text.strip()
+                    'change': cells[2].text.strip(),
+                    'stock_info': stock_info
                 })
+
         return gainers
     except requests.RequestException as e:
         print(f"Error fetching data: {e}")
@@ -193,8 +235,8 @@ def place_order():
         # Fetch historical data
         historical_data = kite.historical_data(
             instrument_token,
-            datetime.datetime.now() - datetime.timedelta(days=5),
-            datetime.datetime.now(),
+            datetime.now() - datetime.timedelta(days=5),
+            datetime.now(),
             "day"
         )
         previous_high = max(data['high'] for data in historical_data)
@@ -276,12 +318,21 @@ def get_gainers_api():
 
 @app.route('/api/scrape/<symbol>')
 def scrape_stock(symbol):
-    news_items = scrape_stock_news(symbol)
-    sentiment = analyze_sentiment(news_items)
-    return jsonify({
-        'news': news_items,
-        'sentiment': sentiment
-    })
+    try:
+        # Fetch news and analyze sentiment
+        news_items = scrape_stock_news(symbol)
+        sentiment = analyze_sentiment(news_items)
+        
+        return jsonify({
+            'news': news_items,
+            'sentiment': sentiment
+        })
+    
+    except Exception as e:
+        print(f"Error scraping stock {symbol}: {e}")
+        return jsonify({
+            'error': f"Error scraping stock {symbol}: {str(e)}"
+        }), 400
 
 @app.route('/')
 def index():

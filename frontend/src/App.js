@@ -239,10 +239,20 @@ function App() {
                           <h3 className="text-lg font-semibold">{gainer.symbol} - {gainer.company}</h3>
                           <p>Price: {gainer.price}</p>
                           <p>Change: {gainer.change}</p>
+                          <hr className="flex-grow border-t border-dashed border-gray-400 mt-1" />
+                          <p className="rounded-full bg-blue-500 text-white px-1 mt-1">PP: {gainer.stock_info.pivot_points.pp}</p>
+                          <p className="rounded-full bg-red-500 text-white px-1 mt-1">R1: {gainer.stock_info.pivot_points.r1}</p>
+                          <p className="rounded-full bg-red-500 text-white px-1 mt-1">R2: {gainer.stock_info.pivot_points.r2}</p>
+                          <p className="rounded-full bg-red-500 text-white px-1 mt-1">R3: {gainer.stock_info.pivot_points.r3}</p>
+                          <p className="rounded-full bg-green-500 text-white px-1 mt-1">S1: {gainer.stock_info.pivot_points.s1}</p>
+                          <p className="rounded-full bg-green-500 text-white px-1 mt-1">S2: {gainer.stock_info.pivot_points.s2}</p>
+                          <p className="rounded-full bg-green-500 text-white px-1 mt-1 mb-1">S3: {gainer.stock_info.pivot_points.s3}</p>
+                          <hr className="flex-grow border-t border-dashed border-gray-400" />
+                          <p className="rounded-full bg-yellow-500 text-white px-1 mt-1">Position: {gainer.stock_info.position}</p>
                           <button
                             onClick={() => startScraping(gainer.symbol)}
                             disabled={isScrapingStarted}
-                            className="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
+                            className="text-center mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
                           >
                             {isScrapingStarted && selectedGainer === gainer.symbol ? 'Scraping...' : 'Start Scraping'}
                           </button>
