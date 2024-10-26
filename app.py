@@ -71,7 +71,7 @@ def get_top_gainers():
             return []
         
         gainers = []
-        for row in table.find_all('tr')[1:6]:
+        for row in table.find_all('tr')[1:10]:
             cells = row.find_all('td')
             if len(cells) >= 4:
 

@@ -249,13 +249,15 @@ function App() {
                           <p className="rounded-full bg-green-500 text-white px-1 mt-1 mb-1">S3: {gainer.stock_info.pivot_points.s3}</p>
                           <hr className="flex-grow border-t border-dashed border-gray-400" />
                           <p className="rounded-full bg-yellow-500 text-white px-1 mt-1">Position: {gainer.stock_info.position}</p>
-                          <button
-                            onClick={() => startScraping(gainer.symbol)}
-                            disabled={isScrapingStarted}
-                            className="text-center mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
-                          >
-                            {isScrapingStarted && selectedGainer === gainer.symbol ? 'Scraping...' : 'Start Scraping'}
-                          </button>
+                          <div className='flex justify-center'>
+                            <button
+                              onClick={() => startScraping(gainer.symbol)}
+                              disabled={isScrapingStarted}
+                              className="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
+                            >
+                              {isScrapingStarted && selectedGainer === gainer.symbol ? 'Scraping...' : 'Start Scraping'}
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
