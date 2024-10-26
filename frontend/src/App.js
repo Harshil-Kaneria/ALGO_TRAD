@@ -282,7 +282,6 @@ function App() {
                   Search
                 </button>
               </div>
-              <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
               {searchResult && (
                 <div className="bg-gray-100 p-4 rounded-lg shadow mb-4">
                   <h3 className="text-lg font-semibold">{searchResult.company} ({searchResult.symbol})</h3>
@@ -334,7 +333,7 @@ function App() {
 
                 {gainers.length > 0 && (<>
                   <div className="mb-6">
-                    <hr className="flex-grow border-t border-dashed border-gray-400" />
+                    <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
                     <h2 className="text-2xl font-bold mb-4">Top Gainers</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {gainers.map((gainer, index) => (

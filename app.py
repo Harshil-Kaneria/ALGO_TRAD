@@ -134,7 +134,6 @@ def scrape_stock_news(symbol):
         
         # Fetch news
         news = ticker.news
-        print('news', news[0])
         # Process and return the first 5 news items
         news_items = []
         for item in news[:5]:
