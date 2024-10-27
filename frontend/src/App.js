@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import GainersTable from './GainersTable';
 
 function App() {
   const [profileData, setProfileData] = useState(null);
@@ -264,107 +265,84 @@ function App() {
                 </div>
 
 
-            <div className="mb-6">
-            <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-              <h2 className="text-2xl font-bold mb-4">Search Stock</h2>
-              <div className="flex items-center mb-4">
-                <input
-                  type="text"
-                  value={searchSymbol}
-                  onChange={(e) => setSearchSymbol(e.target.value)}
-                  placeholder="Enter stock symbol"
-                  className="flex-grow border border-gray-300 rounded-l-md p-2"
-                />
-                <button
-                  onClick={handleSearch}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 transition"
-                >
-                  Search
-                </button>
-              </div>
-              {searchResult && (
-                <div className="bg-gray-100 p-4 rounded-lg shadow mb-4">
-                  <h3 className="text-lg font-semibold">{searchResult.company} ({searchResult.symbol})</h3>
-                  <p>Price: {searchResult.price}</p>
-                  <p>Change: {searchResult.change}</p>
-                  <hr className="my-2 border-t border-dashed border-gray-400" />
-                  <p className="rounded-full bg-blue-500 text-white px-1 mt-1">PP: {searchResult.pivot_points.pp}</p>
-                  <p className="rounded-full bg-red-500 text-white px-1 mt-1">R1: {searchResult.pivot_points.r1}</p>
-                  <p className="rounded-full bg-red-500 text-white px-1 mt-1">R2: {searchResult.pivot_points.r2}</p>
-                  <p className="rounded-full bg-red-500 text-white px-1 mt-1">R3: {searchResult.pivot_points.r3}</p>
-                  <p className="rounded-full bg-green-500 text-white px-1 mt-1">S1: {searchResult.pivot_points.s1}</p>
-                  <p className="rounded-full bg-green-500 text-white px-1 mt-1">S2: {searchResult.pivot_points.s2}</p>
-                  <p className="rounded-full bg-green-500 text-white px-1 mt-1 mb-1">S3: {searchResult.pivot_points.s3}</p>
-                  <hr className="my-2 border-t border-dashed border-gray-400" />
-                  <p className="rounded-full bg-yellow-500 text-white px-1 mt-1">Position: {searchResult.position}</p>
-                  <div className='flex justify-center'>
-                    <button
-                      onClick={startSearchScraping}
-                      disabled={isSearchScrapingStarted}
-                      className="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
-                    >
-                      {isSearchScrapingStarted ? 'Scraping...' : 'Start Scraping'}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {searchResult && searchResult.news && (
                 <div className="mb-6">
                   <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-                  <h2 className="text-2xl font-bold mb-4">News and Sentiment for {searchResult.symbol}</h2>
-                  <ul className="list-disc pl-5">
-                    {searchResult.news.map((item, index) => (
-                      <li key={index} className="mb-2">
-                        {item.title}
-                        <br />
-                        <a href={item.url} target="_blank">Read More</a>
-                        <br />
-                        <span className={`font-bold ${searchResult.sentiment[index].sentiment=='Positive' ? 'text-green-600' : searchResult.sentiment[index].sentiment == 'Negative' ? 'text-red-600' : 'text-yellow-600'} `}>
-                          Sentiment: {searchResult.sentiment[index].sentiment}<br />
-                          Score: {searchResult.sentiment[index].score}
-                        </span>
-                        <hr />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-                {gainers.length > 0 && (<>
-                  <div className="mb-6">
-                    <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-                    <h2 className="text-2xl font-bold mb-4">Top Gainers</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {gainers.map((gainer, index) => (
-                        <div key={index} className="bg-gray-100 p-4 rounded-lg shadow">
-                          <h3 className="text-lg font-semibold">{gainer.symbol} - {gainer.company}</h3>
-                          <p>Price: {gainer.price}</p>
-                          <p>Change: {gainer.change}</p>
-                          <hr className="flex-grow border-t border-dashed border-gray-400 mt-1" />
-                          <p className="rounded-full bg-blue-500 text-white px-1 mt-1">PP: {gainer.stock_info.pivot_points.pp}</p>
-                          <p className="rounded-full bg-red-500 text-white px-1 mt-1">R1: {gainer.stock_info.pivot_points.r1}</p>
-                          <p className="rounded-full bg-red-500 text-white px-1 mt-1">R2: {gainer.stock_info.pivot_points.r2}</p>
-                          <p className="rounded-full bg-red-500 text-white px-1 mt-1">R3: {gainer.stock_info.pivot_points.r3}</p>
-                          <p className="rounded-full bg-green-500 text-white px-1 mt-1">S1: {gainer.stock_info.pivot_points.s1}</p>
-                          <p className="rounded-full bg-green-500 text-white px-1 mt-1">S2: {gainer.stock_info.pivot_points.s2}</p>
-                          <p className="rounded-full bg-green-500 text-white px-1 mt-1 mb-1">S3: {gainer.stock_info.pivot_points.s3}</p>
-                          <hr className="flex-grow border-t border-dashed border-gray-400" />
-                          <p className="rounded-full bg-yellow-500 text-white px-1 mt-1">Position: {gainer.stock_info.position}</p>
-                          <div className='flex justify-center'>
-                            <button
-                              onClick={() => startScraping(gainer.symbol)}
-                              disabled={isScrapingStarted}
-                              className="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
-                            >
-                              {isScrapingStarted && selectedGainer === gainer.symbol ? 'Scraping...' : 'Start Scraping'}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <h2 className="text-2xl font-bold mb-4">Search Stock</h2>
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="text"
+                      value={searchSymbol}
+                      onChange={(e) => setSearchSymbol(e.target.value)}
+                      placeholder="Enter stock symbol"
+                      className="flex-grow border border-gray-300 rounded-l-md p-2"
+                    />
+                    <button
+                      onClick={handleSearch}
+                      className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 transition"
+                    >
+                      Search
+                    </button>
                   </div>
-                </>)}
+                  {searchResult && (
+                    <div className="bg-gray-100 p-4 rounded-lg shadow mb-4">
+                      <h3 className="text-lg font-semibold">{searchResult.company} ({searchResult.symbol})</h3>
+                      <p>Price: {searchResult.price}</p>
+                      <p>Change: {searchResult.change}</p>
+                      <hr className="my-2 border-t border-dashed border-gray-400" />
+                      <p className="rounded-full bg-blue-500 text-white px-1 mt-1">PP: {searchResult.pivot_points.pp}</p>
+                      <p className="rounded-full bg-red-500 text-white px-1 mt-1">R1: {searchResult.pivot_points.r1}</p>
+                      <p className="rounded-full bg-red-500 text-white px-1 mt-1">R2: {searchResult.pivot_points.r2}</p>
+                      <p className="rounded-full bg-red-500 text-white px-1 mt-1">R3: {searchResult.pivot_points.r3}</p>
+                      <p className="rounded-full bg-green-500 text-white px-1 mt-1">S1: {searchResult.pivot_points.s1}</p>
+                      <p className="rounded-full bg-green-500 text-white px-1 mt-1">S2: {searchResult.pivot_points.s2}</p>
+                      <p className="rounded-full bg-green-500 text-white px-1 mt-1 mb-1">S3: {searchResult.pivot_points.s3}</p>
+                      <hr className="my-2 border-t border-dashed border-gray-400" />
+                      <p className="rounded-full bg-yellow-500 text-white px-1 mt-1">Position: {searchResult.position}</p>
+                      <div className='flex justify-center'>
+                        <button
+                          onClick={startSearchScraping}
+                          disabled={isSearchScrapingStarted}
+                          className="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
+                        >
+                          {isSearchScrapingStarted ? 'Scraping...' : 'Start Scraping'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {searchResult && searchResult.news && (
+                    <div className="mb-6">
+                      <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
+                      <h2 className="text-2xl font-bold mb-4">News and Sentiment for {searchResult.symbol}</h2>
+                      <ul className="list-disc pl-5">
+                        {searchResult.news.map((item, index) => (
+                          <li key={index} className="mb-2">
+                            {item.title}
+                            <br />
+                            Published By - <strong>{item.publisher}</strong> on <strong>{item.publish_time}</strong>
+                            <br />
+                            <a href={item.url} target="_blank">Read More</a>
+                            <br />
+                            <span className={`font-bold ${searchResult.sentiment[index].sentiment == 'Positive' ? 'text-green-600' : searchResult.sentiment[index].sentiment == 'Negative' ? 'text-red-600' : 'text-yellow-600'} `}>
+                              Sentiment: {searchResult.sentiment[index].sentiment}<br />
+                              Score: {searchResult.sentiment[index].score}
+                            </span>
+                            <hr />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {gainers.length > 0 && (
+                  <GainersTable
+                    gainers={gainers}
+                    isScrapingStarted={isScrapingStarted}
+                    selectedGainer={selectedGainer}
+                    startScraping={startScraping}
+                  />
+                )}
+
                 {news.length > 0 && (<>
                   {selectedGainer && (
                     <div className="mb-6">
@@ -375,9 +353,11 @@ function App() {
                           <li key={index} className="mb-2">
                             {item.title}
                             <br />
+                            Published By - <strong>{item.publisher}</strong> on <strong>{item.publish_time}</strong>
+                            <br />
                             <a href={item.url} target="_blank">Read More</a>
                             <br />
-                            <span className={`font-bold ${sentiment[index].sentiment=='Positive' ? 'text-green-600' : sentiment[index].sentiment == 'Negative' ? 'text-red-600' : 'text-yellow-600'} `}>
+                            <span className={`font-bold ${sentiment[index].sentiment == 'Positive' ? 'text-green-600' : sentiment[index].sentiment == 'Negative' ? 'text-red-600' : 'text-yellow-600'} `}>
                               Sentiment: {sentiment[index].sentiment}<br />
                               Score: {sentiment[index].score}
                             </span>

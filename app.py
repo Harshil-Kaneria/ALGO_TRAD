@@ -140,7 +140,9 @@ def scrape_stock_news(symbol):
         for item in news[:5]:
             news_items.append({
                 'title': item['title'],
-                'url': item['link']
+                'url': item['link'],
+                'publisher': item['publisher'],
+                'publish_time': datetime.fromtimestamp(item['providerPublishTime']).strftime('%Y-%m-%d %I:%M:%S %p')
             })
         
         return news_items
