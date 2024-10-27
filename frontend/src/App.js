@@ -317,9 +317,9 @@ function App() {
                       <li key={index} className="mb-2">
                         {item.title}
                         <br />
-                        <a href={item.url} target="_blank" rel="noopener noreferrer">Read More</a>
+                        <a href={item.url} target="_blank">Read More</a>
                         <br />
-                        <span className={`font-bold ${searchResult.sentiment[index].sentiment === 'POSITIVE' ? 'text-green-600' : searchResult.sentiment[index].sentiment === 'NEGATIVE' ? 'text-red-600' : 'text-yellow-600'}`}>
+                        <span className={`font-bold ${searchResult.sentiment[index].sentiment=='Positive' ? 'text-green-600' : searchResult.sentiment[index].sentiment == 'Negative' ? 'text-red-600' : 'text-yellow-600'} `}>
                           Sentiment: {searchResult.sentiment[index].sentiment}<br />
                           Score: {searchResult.sentiment[index].score}
                         </span>
@@ -375,8 +375,9 @@ function App() {
                           <li key={index} className="mb-2">
                             {item.title}
                             <br />
-                            <a href={item.url} target="_blank" rel="noopener noreferrer">Read More</a>
-                            <br /><span className={`font-bold ${sentiment[index].sentiment == 'POSITIVE' ? 'text-green-600' : sentiment[index].sentiment == 'NEGATIVE' ? 'text-red-600' : 'text-yellow-600'}`}>
+                            <a href={item.url} target="_blank">Read More</a>
+                            <br />
+                            <span className={`font-bold ${sentiment[index].sentiment=='Positive' ? 'text-green-600' : sentiment[index].sentiment == 'Negative' ? 'text-red-600' : 'text-yellow-600'} `}>
                               Sentiment: {sentiment[index].sentiment}<br />
                               Score: {sentiment[index].score}
                             </span>

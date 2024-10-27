@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from transformers import pipeline
 import requests
 from bs4 import BeautifulSoup
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
@@ -147,7 +148,7 @@ def scrape_stock_news(symbol):
         print(f"Error fetching news for {symbol}: {e}")
         return []
 
-sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+sentiment_analyzer = pipeline("sentiment-analysis", model="yiyanghkust/finbert-tone")
 def analyze_sentiment(news_items):
     if not news_items:
         return []
@@ -158,29 +159,40 @@ def analyze_sentiment(news_items):
             # Fetch the full article content
             response = requests.get(item['url'], timeout=10)
             soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Extract the main text content (this may need adjustment based on the specific news site structure)
             paragraphs = soup.find_all('p')
             full_text = ' '.join([p.get_text() for p in paragraphs])
-            
-            # Truncate text if it's too long (BERT models typically have a max length of 512 tokens)
-            max_length = 500  # Adjust as needed
-            truncated_text = ' '.join(full_text.split()[:max_length])
-            
-            # Analyze sentiment
-            result = sentiment_analyzer(truncated_text)[0]
-            
+
+            # Split text into sentences
+            sentences = full_text.split('. ')
+            scores = []
+
+            for sentence in sentences:
+                if len(sentence.strip()) > 0:  # Ensure the sentence is not empty
+                    result = sentiment_analyzer(sentence)[0]
+
+                    # Use a different scoring mechanism
+                    if result['label'] == 'Positive':
+                        scores.append(result['score'])  # Positive scores
+                    elif result['label'] == 'Negative':
+                        scores.append(-result['score'])  # Negative scores
+                    else:  # Neutral
+                        scores.append(0)  # Neutral sentiment contributes 0
+
+            # Calculate average score for the article
+            average_score = np.mean(scores) if scores else 0
+            overall_sentiment = 'Positive' if average_score > 0 else 'Negative' if average_score < 0 else 'Neutral'
+
             sentiments.append({
                 'title': item['title'],
-                'sentiment': result['label'],
-                'score': result['score']
+                'sentiment': overall_sentiment,
+                'score': average_score
             })
         except Exception as e:
             print(f"Error analyzing sentiment for {item['title']}: {str(e)}")
             sentiments.append({
                 'title': item['title'],
-                'sentiment': 'NEUTRAL',
-                'score': 0.5
+                'sentiment': 'neutral',
+                'score': 0.0
             })
 
     return sentiments
