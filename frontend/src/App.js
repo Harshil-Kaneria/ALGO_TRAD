@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import GainersTable from './GainersTable';
+import { Card, Tag, Button,List, Typography } from 'antd';
 
 function App() {
   const [profileData, setProfileData] = useState(null);
@@ -284,54 +285,65 @@ function App() {
                     </button>
                   </div>
                   {searchResult && (
-                    <div className="bg-gray-100 p-4 rounded-lg shadow mb-4">
-                      <h3 className="text-lg font-semibold">{searchResult.company} ({searchResult.symbol})</h3>
-                      <p>Price: {searchResult.price}</p>
-                      <p>Change: {searchResult.change}</p>
-                      <hr className="my-2 border-t border-dashed border-gray-400" />
-                      <p className="rounded-full bg-blue-500 text-white px-1 mt-1">PP: {searchResult.pivot_points.pp}</p>
-                      <p className="rounded-full bg-red-500 text-white px-1 mt-1">R1: {searchResult.pivot_points.r1}</p>
-                      <p className="rounded-full bg-red-500 text-white px-1 mt-1">R2: {searchResult.pivot_points.r2}</p>
-                      <p className="rounded-full bg-red-500 text-white px-1 mt-1">R3: {searchResult.pivot_points.r3}</p>
-                      <p className="rounded-full bg-green-500 text-white px-1 mt-1">S1: {searchResult.pivot_points.s1}</p>
-                      <p className="rounded-full bg-green-500 text-white px-1 mt-1">S2: {searchResult.pivot_points.s2}</p>
-                      <p className="rounded-full bg-green-500 text-white px-1 mt-1 mb-1">S3: {searchResult.pivot_points.s3}</p>
-                      <hr className="my-2 border-t border-dashed border-gray-400" />
-                      <p className="rounded-full bg-yellow-500 text-white px-1 mt-1">Position: {searchResult.position}</p>
-                      <div className='flex justify-center'>
-                        <button
-                          onClick={startSearchScraping}
-                          disabled={isSearchScrapingStarted}
-                          className="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
-                        >
-                          {isSearchScrapingStarted ? 'Scraping...' : 'Start Scraping'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+  <Card className="mb-4" title={`${searchResult.company} (${searchResult.symbol})`}>
+    <p><strong>Price:</strong> {searchResult.price}</p>
+    <p><strong>Change:</strong> {searchResult.change}</p>
+    <hr className="my-2" />
+    
+    <div className="flex flex-wrap">
+      <p><strong>Position:</strong> <Tag color="blue">{searchResult.position}</Tag></p>
+      <Tag color="blue">PP: {searchResult.pivot_points.pp}</Tag><br/>
+    </div>
+    <div className="flex flex-wrap">
+      <Tag color="red">R1: {searchResult.pivot_points.r1}</Tag><br/>
+      <Tag color="red">R2: {searchResult.pivot_points.r2}</Tag><br/>
+      <Tag color="red">R3: {searchResult.pivot_points.r3}</Tag><br/>
+    </div>
+    <div className="flex flex-wrap">
+      <Tag color="green">S1: {searchResult.pivot_points.s1}</Tag><br/>
+      <Tag color="green">S2: {searchResult.pivot_points.s2}</Tag><br/>
+      <Tag color="green">S3: {searchResult.pivot_points.s3}</Tag><br/>
+    </div>
+    <hr className="my-2" />
+    <div className='flex justify-center'>
+      <Button
+        onClick={startSearchScraping}
+        disabled={isSearchScrapingStarted}
+        type="primary"
+        loading={isSearchScrapingStarted}
+      >
+        {isSearchScrapingStarted ? 'Scraping...' : 'Start Scraping'}
+      </Button>
+    </div>
+  </Card>
+)}
                   {searchResult && searchResult.news && (
-                    <div className="mb-6">
-                      <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-                      <h2 className="text-2xl font-bold mb-4">News and Sentiment for {searchResult.symbol}</h2>
-                      <ul className="list-disc pl-5">
-                        {searchResult.news.map((item, index) => (
-                          <li key={index} className="mb-2">
-                            {item.title}
-                            <br />
-                            Published By - <strong>{item.publisher}</strong> on <strong>{item.publish_time}</strong>
-                            <br />
-                            <a href={item.url} target="_blank">Read More</a>
-                            <br />
-                            <span className={`font-bold ${searchResult.sentiment[index].sentiment == 'Positive' ? 'text-green-600' : searchResult.sentiment[index].sentiment == 'Negative' ? 'text-red-600' : 'text-yellow-600'} `}>
-                              Sentiment: {searchResult.sentiment[index].sentiment}<br />
-                              Score: {searchResult.sentiment[index].score}
-                            </span>
-                            <hr />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+  <Card className="mb-6" title={`News and Sentiment for ${searchResult.symbol}`} bordered>
+    <List
+      itemLayout="vertical"
+      dataSource={searchResult.news}
+      renderItem={(item, index) => (
+        <List.Item key={index}>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            {item.title}
+          </Typography.Title>
+          <Typography.Paragraph>
+            Published By - <strong>{item.publisher}</strong> on{' '}
+            <strong>{item.publish_time}</strong>
+          </Typography.Paragraph>
+          <a href={item.url} target="_blank" rel="noopener noreferrer">
+            Read More
+          </a>
+          <br />
+          <Tag color={searchResult.sentiment[index].sentiment === 'Positive' ? 'green' : searchResult.sentiment[index].sentiment === 'Negative' ? 'red' : 'gold'}>
+            Sentiment: {searchResult.sentiment[index].sentiment}
+          </Tag>
+          <Tag color="blue">Score: {searchResult.sentiment[index].score}</Tag>
+        </List.Item>
+      )}
+    />
+  </Card>
+)}
                 </div>
 
                 {gainers.length > 0 && (
@@ -343,31 +355,35 @@ function App() {
                   />
                 )}
 
-                {news.length > 0 && (<>
-                  {selectedGainer && (
-                    <div className="mb-6">
-                      <hr className="flex-grow border-t border-dashed border-gray-400" />
-                      <h2 className="text-2xl font-bold mb-4">News and Sentiment for {selectedGainer}</h2>
-                      <ul className="list-disc pl-5">
-                        {news.map((item, index) => (
-                          <li key={index} className="mb-2">
-                            {item.title}
-                            <br />
-                            Published By - <strong>{item.publisher}</strong> on <strong>{item.publish_time}</strong>
-                            <br />
-                            <a href={item.url} target="_blank">Read More</a>
-                            <br />
-                            <span className={`font-bold ${sentiment[index].sentiment == 'Positive' ? 'text-green-600' : sentiment[index].sentiment == 'Negative' ? 'text-red-600' : 'text-yellow-600'} `}>
-                              Sentiment: {sentiment[index].sentiment}<br />
-                              Score: {sentiment[index].score}
-                            </span>
-                            <hr />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </>)}
+{news.length > 0 && (
+  selectedGainer && (
+    <Card className="mb-6" title={`News and Sentiment for ${selectedGainer}`} bordered>
+      <List
+        itemLayout="vertical"
+        dataSource={news}
+        renderItem={(item, index) => (
+          <List.Item key={index}>
+            <Typography.Title level={4} style={{ margin: 0 }}>
+              {item.title}
+            </Typography.Title>
+            <Typography.Paragraph>
+              Published By - <strong>{item.publisher}</strong> on{' '}
+              <strong>{item.publish_time}</strong>
+            </Typography.Paragraph>
+            <a href={item.url} target="_blank" rel="noopener noreferrer">
+              Read More
+            </a>
+            <br />
+            <Tag color={sentiment[index].sentiment === 'Positive' ? 'green' : sentiment[index].sentiment === 'Negative' ? 'red' : 'gold'}>
+              Sentiment: {sentiment[index].sentiment}
+            </Tag>
+            <Tag color="blue">Score: {sentiment[index].score}</Tag>
+          </List.Item>
+        )}
+      />
+    </Card>
+  )
+)}
               </>
             )}
           </div>

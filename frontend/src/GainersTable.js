@@ -53,6 +53,7 @@ const GainersTable = ({ gainers, isScrapingStarted, selectedGainer, startScrapin
                     onClick={() => startScraping(record.symbol)}
                     disabled={isScrapingStarted}
                     className="bg-green-500 text-white"
+                    loading={isScrapingStarted && selectedGainer === record.symbol}
                 >
                     {isScrapingStarted && selectedGainer === record.symbol ? 'Scraping...' : 'Start Scraping'}
                 </Button>
