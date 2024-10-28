@@ -216,14 +216,22 @@ def analyze_sentiment(news_items):
 class StockPricePredictor(nn.Module):
     def __init__(self):
         super(StockPricePredictor, self).__init__()
-        self.fc1 = nn.Linear(3, 10)  # 3 input features
-        self.fc2 = nn.Linear(10, 1)   # 1 output
- 
+        self.layer1 = nn.Linear(3, 64)
+        self.layer2 = nn.Linear(64, 32)
+        self.layer3 = nn.Linear(32, 16)
+        self.layer4 = nn.Linear(16, 1)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.2)
+        
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = self.relu(self.layer1(x))
+        x = self.dropout(x)
+        x = self.relu(self.layer2(x))
+        x = self.dropout(x)
+        x = self.relu(self.layer3(x))
+        x = self.layer4(x)
         return x
- 
+
 # Function to fetch historical data
 def get_historical_data(symbol, interval='1d', period='1y'):  # Changed period from '1mo' to '1y'
     try:
@@ -300,50 +308,57 @@ def calculate_indicators(data):
  
 # Function to train the regression model
 def train_regression_model(data):
-    data = data.dropna()
-    features = data[['SMA_20', 'SMA_50', 'Volume_MA']]
-    target = data['Close'].shift(-1).dropna()  # Predict next day's close
-    features = features[:-1]
- 
-    X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=42)
- 
-    model = make_pipeline(StandardScaler(), LinearRegression())
-    model.fit(X_train, y_train)
- 
-    return model
- 
+    # Prepare features with proper column names
+    feature_columns = ['SMA_20', 'SMA_50', 'Volume_MA']
+    X = data[feature_columns].values
+    y = data['Close'].values
+    
+    # Create and fit the pipeline with named steps
+    pipeline = make_pipeline(
+        StandardScaler(with_mean=True, with_std=True),
+        LinearRegression()
+    )
+    
+    # Use last 80% of data for training to capture recent trends
+    train_size = int(len(data) * 0.8)
+    X_train = X[-train_size:]
+    y_train = y[-train_size:]
+    
+    pipeline.fit(X_train, y_train)
+    return pipeline
+
+
 # Function to train the PyTorch model
 def train_pytorch_model(data):
-    data = data.dropna()
+    model = StockPricePredictor()
     
     # Prepare features and target
-    features = data[['SMA_20', 'SMA_50', 'Volume_MA']].values.astype(np.float32)
-    target = data['Close'].values.astype(np.float32)  # Current close prices
+    feature_columns = ['SMA_20', 'SMA_50', 'Volume_MA']
+    X = data[feature_columns].values.astype(np.float32)
+    y = data['Close'].values.astype(np.float32)
     
-    # Ensure features and target have same length by removing last feature row
-    features = features[:-1]  # Remove last row of features
-    target = target[1:]      # Remove first row of target (shift up by 1)
+    # Use last 80% of data for training
+    train_size = int(len(data) * 0.8)
+    X_train = X[-train_size:]
+    y_train = y[-train_size:]
     
-    # Convert to PyTorch tensors
-    features_tensor = torch.tensor(features)
-    target_tensor = torch.tensor(target).view(-1, 1)
+    # Convert to tensors
+    X_tensor = torch.tensor(X_train)
+    y_tensor = torch.tensor(y_train)
     
-    # Verify tensor shapes match
-    assert len(features_tensor) == len(target_tensor), "Tensor length mismatch"
-    
-    model = StockPricePredictor()
+    # Train the model
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     
-    # Training loop
-    for epoch in range(100):  # 100 epochs
+    model.train()
+    for epoch in range(100):
         optimizer.zero_grad()
-        outputs = model(features_tensor)
-        loss = criterion(outputs, target_tensor)
+        outputs = model(X_tensor)
+        loss = criterion(outputs.squeeze(), y_tensor)
         loss.backward()
         optimizer.step()
     
-    model.eval()  # Set model to evaluation mode
+    model.eval()
     return model
 
 # Function to generate signals and predictions
@@ -351,75 +366,93 @@ def generate_signals(data, regression_model, pytorch_model):
     latest_data = data.iloc[-1]
     previous_data = data.iloc[-2]
     
-    # Calculate price change percentage for more accurate trend
-    price_change_percent = ((latest_data['Close'] - previous_data['Close']) / previous_data['Close']) * 100
+    # Calculate price momentum
+    price_change = (latest_data['Close'] - previous_data['Close']) / previous_data['Close'] * 100
+    volume_change = (latest_data['Volume'] - previous_data['Volume']) / previous_data['Volume'] * 100
     
-    # More sophisticated trend analysis
+    # Calculate trend strengths
+    sma20_trend = (latest_data['SMA_20'] - data['SMA_20'].rolling(window=5).mean().iloc[-1]) / data['SMA_20'].rolling(window=5).mean().iloc[-1] * 100
+    sma50_trend = (latest_data['SMA_50'] - data['SMA_50'].rolling(window=5).mean().iloc[-1]) / data['SMA_50'].rolling(window=5).mean().iloc[-1] * 100
+    
+    # Determine trends
     short_term_trend = "Bullish" if latest_data['Close'] > latest_data['SMA_20'] else "Bearish"
     medium_term_trend = "Bullish" if latest_data['SMA_20'] > latest_data['SMA_50'] else "Bearish"
     
-    # Pattern detection based on recent price action and volume
+    # More sophisticated pattern detection
     pattern = "Bullish" if (
         latest_data['Close'] > previous_data['Close'] and
-        latest_data['Volume'] > latest_data['Volume_MA']
+        latest_data['Close'] > latest_data['SMA_20'] and
+        volume_change > 0 and
+        sma20_trend > 0
     ) else "Bearish"
     
-    # Normalize predictions to be within a reasonable range
-    entry_price = float(latest_data['Close'])
-    
-    # AI prediction using regression model
+    # Generate predictions
     features = np.array([[
-        float(latest_data['SMA_20']), 
-        float(latest_data['SMA_50']), 
+        float(latest_data['SMA_20']),
+        float(latest_data['SMA_50']),
         float(latest_data['Volume_MA'])
     ]])
+    
+    # Get regression prediction
     predicted_price_reg = float(regression_model.predict(features)[0])
     
-    # Limit the prediction to a reasonable range (±5% of current price)
+    # Get PyTorch prediction
+    with torch.no_grad():
+        features_tensor = torch.tensor(features, dtype=torch.float32)
+        predicted_price_torch = float(pytorch_model(features_tensor).item())
+    
+    # Normalize predictions to be within reasonable range
+    current_price = float(latest_data['Close'])
+    max_change = 0.05  # 5% maximum change
+    
     predicted_price_reg = max(min(
         predicted_price_reg,
-        entry_price * 1.05  # Max 5% up
-    ), entry_price * 0.95)  # Min 5% down
+        current_price * (1 + max_change)
+    ), current_price * (1 - max_change))
     
-    # AI prediction using PyTorch model
-    features_tensor = torch.tensor(features, dtype=torch.float32)
-    predicted_price_torch = float(pytorch_model(features_tensor).item())
-    
-    # Normalize PyTorch prediction to be within reasonable range
     predicted_price_torch = max(min(
         predicted_price_torch,
-        entry_price * 1.05  # Max 5% up
-    ), entry_price * 0.95)  # Min 5% down
+        current_price * (1 + max_change)
+    ), current_price * (1 - max_change))
     
     # Calculate consensus prediction
     consensus_prediction = (predicted_price_reg + predicted_price_torch) / 2
-    prediction_trend = "Bullish" if consensus_prediction > entry_price else "Bearish"
+    prediction_trend = "Bullish" if consensus_prediction > current_price else "Bearish"
     
-    # Generate more accurate buy/sell signals
-    buy_signal = 1 if (
+    # Generate buy/sell signals with more conditions
+    buy_signal = (
         short_term_trend == "Bullish" and
         medium_term_trend == "Bullish" and
         latest_data['Volume'] > latest_data['Volume_MA'] and
+        price_change > 0 and
+        volume_change > 0 and
         prediction_trend == "Bullish"
-    ) else 0
+    )
     
-    sell_signal = 1 if (
+    sell_signal = (
         short_term_trend == "Bearish" and
         medium_term_trend == "Bearish" and
         latest_data['Volume'] > latest_data['Volume_MA'] and
+        price_change < 0 and
         prediction_trend == "Bearish"
-    ) else 0
+    )
+    
+    # Calculate support and resistance levels
+    support = min(latest_data['Low'], latest_data['SMA_20'])
+    resistance = max(latest_data['High'], latest_data['SMA_50'])
     
     return {
-        "buy_signal": buy_signal,
-        "sell_signal": sell_signal,
-        "entry_price": entry_price,
-        "stop_loss": float(entry_price * 0.95),
+        "buy_signal": int(buy_signal),
+        "sell_signal": int(sell_signal),
+        "entry_price": float(latest_data['Close']),
+        "stop_loss": float(support * 0.98),  # 2% below support
+        "take_profit": float(resistance * 1.02),  # 2% above resistance
         "current_price": float(latest_data['Close']),
-        "price_change_percent": float(price_change_percent),
+        "price_change_percent": float(price_change),
+        "volume_change_percent": float(volume_change),
         "short_term_trend": short_term_trend,
         "medium_term_trend": medium_term_trend,
-        "overall_trend": medium_term_trend,  # Using medium term as overall trend
+        "overall_trend": medium_term_trend,
         "pattern": pattern,
         "predicted_price_reg": float(predicted_price_reg),
         "predicted_price_torch": float(predicted_price_torch),
@@ -428,9 +461,15 @@ def generate_signals(data, regression_model, pytorch_model):
         "current_sma_20": float(latest_data['SMA_20']),
         "current_sma_50": float(latest_data['SMA_50']),
         "current_volume": float(latest_data['Volume']),
-        "current_volume_ma": float(latest_data['Volume_MA']),
-        "volume_trend": "High" if latest_data['Volume'] > latest_data['Volume_MA'] else "Low"
+        "volume_trend": "High" if latest_data['Volume'] > latest_data['Volume_MA'] else "Low",
+        "support_level": float(support),
+        "resistance_level": float(resistance),
+        "trend_strength": {
+            "sma20": float(sma20_trend),
+            "sma50": float(sma50_trend)
+        }
     }
+
 
 # Add this function to continuously monitor signals
 def monitor_signals(symbol):

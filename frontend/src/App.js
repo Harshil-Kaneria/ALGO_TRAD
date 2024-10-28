@@ -94,6 +94,7 @@ function App() {
           <div>
             <p><strong>Entry Price:</strong> {signals.entry_price.toFixed(2)}</p>
             <p><strong>Stop Loss:</strong> {signals.stop_loss.toFixed(2)}</p>
+            <p><strong>Take Profit:</strong> {signals.take_profit.toFixed(2)}</p>
           </div>
           <div>
             <p><strong>Overall Trend:</strong> {signals.overall_trend}</p>
@@ -114,13 +115,21 @@ function App() {
           </div>
           <div>
             <p><strong>Current Volume:</strong> {signals.current_volume.toLocaleString()}</p>
+            <p><strong>Volume Change:</strong> {signals.volume_change_percent.toFixed(2)}%</p>
             <p><strong>Volume Trend:</strong> {signals.volume_trend}</p>
             <p><strong>Price Change:</strong> {signals.price_change_percent.toFixed(2)}%</p>
+          </div>
+          <div>
+            <p><strong>Support Level:</strong> {signals.support_level.toFixed(2)}</p>
+            <p><strong>Resistance Level:</strong> {signals.resistance_level.toFixed(2)}</p>
+            <p><strong>Trend Strength (SMA 20):</strong> {signals.trend_strength.sma20.toFixed(2)}</p>
+            <p><strong>Trend Strength (SMA 50):</strong> {signals.trend_strength.sma50.toFixed(2)}</p>
           </div>
         </div>
       </Card>
     );
   };
+  
 
   // Fetch user profile data
   const fetchProfileData = async () => {
