@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import io from 'socket.io-client';
+import React, { useState, useEffect,useCallback } from 'react';
 import axios from 'axios';
 import GainersTable from './GainersTable';
-import { Card, Tag, Button, List, Typography } from 'antd';
+import { Card, Tag, Button, List, Typography, notification } from 'antd';
 
 function App() {
   const [profileData, setProfileData] = useState(null);
@@ -23,6 +24,103 @@ function App() {
   const [searchSymbol, setSearchSymbol] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [isSearchScrapingStarted, setIsSearchScrapingStarted] = useState(false);
+
+  const [socket, setSocket] = useState(null);
+  const [signals, setSignals] = useState(null);
+  
+  // Add this function to handle signal updates
+  const handleSignalUpdate = useCallback((data) => {
+    if (data.symbol === searchSymbol) {
+      console.log('data.signals',data.signals);
+      setSignals(data.signals);
+      
+      // Update UI based on signals
+      if (data.signals.buy_signal) {
+        notification.success({
+          message: 'Buy Signal',
+          description: `Buy signal detected for ${data.symbol} at ${data.signals.entry_price}`,
+          placement: 'topRight', // You can adjust the placement
+        });
+      }
+    
+      if (data.signals.sell_signal) {
+        notification.error({
+          message: 'Sell Signal',
+          description: `Sell signal detected for ${data.symbol} at ${data.signals.entry_price}`,
+          placement: 'topRight', // You can adjust the placement
+        });
+      }
+
+    }
+  }, [searchSymbol]);
+
+  // Add WebSocket connection effect
+  useEffect(() => {
+    const newSocket = io(process.env.REACT_APP_API_BASE_URL);
+    
+    newSocket.on('connect', () => {
+      console.log('Connected to WebSocket');
+    });
+    
+    newSocket.on('signal_update', handleSignalUpdate);
+    
+    newSocket.on('disconnect', () => {
+      console.log('Disconnected from WebSocket');
+    });
+    
+    setSocket(newSocket);
+    
+    return () => {
+      newSocket.close();
+    };
+  }, [handleSignalUpdate]);
+
+  const renderSignals = () => {
+    if (!signals) return null;
+  
+    return (
+      <Card className="mb-4" title="Real-time Signals">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Tag color={signals.buy_signal ? "green" : "default"}>
+              Buy Signal: {signals.buy_signal ? "Yes" : "No"}
+            </Tag>
+          </div>
+          <div>
+            <Tag color={signals.sell_signal ? "red" : "default"}>
+              Sell Signal: {signals.sell_signal ? "Yes" : "No"}
+            </Tag>
+          </div>
+          <div>
+            <p><strong>Entry Price:</strong> {signals.entry_price.toFixed(2)}</p>
+            <p><strong>Stop Loss:</strong> {signals.stop_loss.toFixed(2)}</p>
+          </div>
+          <div>
+            <p><strong>Overall Trend:</strong> {signals.overall_trend}</p>
+            <p><strong>Short Term Trend:</strong> {signals.short_term_trend}</p>
+            <p><strong>Medium Term Trend:</strong> {signals.medium_term_trend}</p>
+            <p><strong>Pattern:</strong> {signals.pattern}</p>
+          </div>
+          <div>
+            <p><strong>Predicted Price (Reg):</strong> {signals.predicted_price_reg.toFixed(2)}</p>
+            <p><strong>Predicted Price (AI):</strong> {signals.predicted_price_torch.toFixed(2)}</p>
+            <p><strong>Consensus Prediction:</strong> {signals.consensus_prediction.toFixed(2)}</p>
+            <p><strong>Prediction Trend:</strong> {signals.prediction_trend}</p>
+          </div>
+          <div>
+            <p><strong>Current Price:</strong> {signals.current_price.toFixed(2)}</p>
+            <p><strong>Current SMA 20:</strong> {signals.current_sma_20.toFixed(2)}</p>
+            <p><strong>Current SMA 50:</strong> {signals.current_sma_50.toFixed(2)}</p>
+          </div>
+          <div>
+            <p><strong>Current Volume:</strong> {signals.current_volume.toLocaleString()}</p>
+            <p><strong>Volume Trend:</strong> {signals.volume_trend}</p>
+            <p><strong>Price Change:</strong> {signals.price_change_percent.toFixed(2)}%</p>
+          </div>
+        </div>
+      </Card>
+    );
+  };
 
   // Fetch user profile data
   const fetchProfileData = async () => {
@@ -112,6 +210,7 @@ function App() {
 
   const handleAnalysisSearch = async () => {
     try {
+      setSignals(null)
       const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/signals/${searchSymbol}`);
       console.log(response);
     } catch (error) {
@@ -327,6 +426,7 @@ function App() {
                       </div>
                     </Card>
                   )}
+                  {((searchResult && signals)) && (<>{renderSignals()}</>)}
                   {searchResult && searchResult.news && (
                     <Card className="mb-6" title={`News and Sentiment for ${searchResult.symbol}`} bordered>
                       <List

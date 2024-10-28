@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 import time
 from flask import Flask, jsonify, request, redirect, render_template
 from flask_cors import CORS
@@ -18,7 +20,10 @@ from bs4 import BeautifulSoup
 import numpy as np
 import torch
 import torch.nn as nn
+from flask import Flask, jsonify, request, redirect, render_template
+from flask_cors import CORS
 from flask_socketio import SocketIO, emit
+import threading
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
@@ -26,7 +31,7 @@ from sklearn.linear_model import LinearRegression
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 load_dotenv()
 
@@ -427,6 +432,38 @@ def generate_signals(data, regression_model, pytorch_model):
         "volume_trend": "High" if latest_data['Volume'] > latest_data['Volume_MA'] else "Low"
     }
 
+# Add this function to continuously monitor signals
+def monitor_signals(symbol):
+    while True:
+        try:
+            # Get historical data
+            data = get_historical_data(symbol)
+            if len(data) == 0:
+                continue
+                
+            # Calculate indicators
+            data = calculate_indicators(data)
+            
+            # Train models
+            regression_model = train_regression_model(data)
+            pytorch_model = train_pytorch_model(data)
+            
+            # Generate signals
+            signals = generate_signals(data, regression_model, pytorch_model)
+            
+            # Emit the signals through WebSocket
+            socketio.emit('signal_update', {
+                'symbol': symbol,
+                'signals': signals,
+                'timestamp': time.time()
+            })
+            
+        except Exception as e:
+            print(f"Error monitoring signals for {symbol}: {str(e)}")
+            
+        # Wait for 1 minute before next update
+        time.sleep(60)
+
 @app.route('/api/profile', methods=['GET'])
 def profile():
     kite = get_kite_instance()
@@ -646,28 +683,15 @@ def get_signals(symbol):
         if len(data) == 0:
             return jsonify({'error': f'No historical data available for {symbol}'}), 404
             
-        # Calculate indicators
         data = calculate_indicators(data)
-        
-        # Check data quality and provide more specific error messages
-        if len(data) < 50:  # Need at least 50 days for SMA_50
-            return jsonify({'error': f'Insufficient historical data for {symbol}. Need at least 50 days of data.'}), 400
-            
-        clean_data = data.dropna()
-        if len(clean_data) < 2:
-            return jsonify({
-                'error': 'Unable to calculate indicators due to missing values',
-                'total_rows': len(data),
-                'valid_rows': len(clean_data)
-            }), 400
-     
-        # Continue with model training and signal generation
         regression_model = train_regression_model(data)
         pytorch_model = train_pytorch_model(data)
-     
         signals = generate_signals(data, regression_model, pytorch_model)
-        signals['current_price'] = data['Close'].iloc[-1]
-        signals['pattern'] = "Bullish" if (data['Close'].iloc[-1] > data['Close'].iloc[-2]) else "Bearish"
+        
+        # Start monitoring thread if not already running
+        thread = threading.Thread(target=monitor_signals, args=(symbol,))
+        thread.daemon = True
+        thread.start()
         
         return jsonify(signals)
         
@@ -677,26 +701,18 @@ def get_signals(symbol):
             'details': 'Error occurred while processing signal data'
         }), 500
 
-@app.route('/')
-def index():
-    # Get top gainers
-    top_gainers = get_top_gainers()
-    
-    # Scrape news and analyze sentiment for top gainers
-    gainer_data = []
-    for gainer in top_gainers:
-        news_items = scrape_stock_news(gainer['symbol'])
-        sentiment = analyze_sentiment(news_items)
-        gainer_data.append({
-            'symbol': gainer['symbol'],
-            'company': gainer['company'],
-            'price': gainer['price'],
-            'change': gainer['change'],
-            'news': news_items,
-            'sentiment': sentiment
-        })
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
 
-    return render_template('index.html', gainer_data=gainer_data)
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Don't use app.run(), use socketio.run() instead
+    socketio.run(app, 
+                debug=True, 
+                host='0.0.0.0',  # Allow external connections
+                port=5000,       # Specify port if needed
+                use_reloader=False) 
