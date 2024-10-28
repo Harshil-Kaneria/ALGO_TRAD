@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import GainersTable from './GainersTable';
-import { Card, Tag, Button,List, Typography } from 'antd';
+import { Card, Tag, Button, List, Typography } from 'antd';
 
 function App() {
   const [profileData, setProfileData] = useState(null);
@@ -110,7 +110,17 @@ function App() {
     }
   }, [exchange, profileData, isMarketOpen]);
 
+  const handleAnalysisSearch = async () => {
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/signals/${searchSymbol}`);
+      console.log(response);
+    } catch (error) {
+      console.error('Error searching stock:', error);
+    }
+  };
+
   const handleSearch = async () => {
+    handleAnalysisSearch()
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/search/${searchSymbol}`);
       setSearchResult(response.data);
@@ -285,65 +295,65 @@ function App() {
                     </button>
                   </div>
                   {searchResult && (
-  <Card className="mb-4" title={`${searchResult.company} (${searchResult.symbol})`}>
-    <p><strong>Price:</strong> {searchResult.price}</p>
-    <p><strong>Change:</strong> {searchResult.change}</p>
-    <hr className="my-2" />
-    
-    <div className="flex flex-wrap">
-      <p><strong>Position:</strong> <Tag color="blue">{searchResult.position}</Tag></p>
-      <Tag color="blue">PP: {searchResult.pivot_points.pp}</Tag><br/>
-    </div>
-    <div className="flex flex-wrap">
-      <Tag color="red">R1: {searchResult.pivot_points.r1}</Tag><br/>
-      <Tag color="red">R2: {searchResult.pivot_points.r2}</Tag><br/>
-      <Tag color="red">R3: {searchResult.pivot_points.r3}</Tag><br/>
-    </div>
-    <div className="flex flex-wrap">
-      <Tag color="green">S1: {searchResult.pivot_points.s1}</Tag><br/>
-      <Tag color="green">S2: {searchResult.pivot_points.s2}</Tag><br/>
-      <Tag color="green">S3: {searchResult.pivot_points.s3}</Tag><br/>
-    </div>
-    <hr className="my-2" />
-    <div className='flex justify-center'>
-      <Button
-        onClick={startSearchScraping}
-        disabled={isSearchScrapingStarted}
-        type="primary"
-        loading={isSearchScrapingStarted}
-      >
-        {isSearchScrapingStarted ? 'Scraping...' : 'Start Scraping'}
-      </Button>
-    </div>
-  </Card>
-)}
+                    <Card className="mb-4" title={`${searchResult.company} (${searchResult.symbol})`}>
+                      <p><strong>Price:</strong> {searchResult.price}</p>
+                      <p><strong>Change:</strong> {searchResult.change}</p>
+                      <hr className="my-2" />
+
+                      <div className="flex flex-wrap">
+                        <p><strong>Position:</strong> <Tag color="blue">{searchResult.position}</Tag></p>
+                        <Tag color="blue">PP: {searchResult.pivot_points.pp}</Tag><br />
+                      </div>
+                      <div className="flex flex-wrap">
+                        <Tag color="red">R1: {searchResult.pivot_points.r1}</Tag><br />
+                        <Tag color="red">R2: {searchResult.pivot_points.r2}</Tag><br />
+                        <Tag color="red">R3: {searchResult.pivot_points.r3}</Tag><br />
+                      </div>
+                      <div className="flex flex-wrap">
+                        <Tag color="green">S1: {searchResult.pivot_points.s1}</Tag><br />
+                        <Tag color="green">S2: {searchResult.pivot_points.s2}</Tag><br />
+                        <Tag color="green">S3: {searchResult.pivot_points.s3}</Tag><br />
+                      </div>
+                      <hr className="my-2" />
+                      <div className='flex justify-center'>
+                        <Button
+                          onClick={startSearchScraping}
+                          disabled={isSearchScrapingStarted}
+                          type="primary"
+                          loading={isSearchScrapingStarted}
+                        >
+                          {isSearchScrapingStarted ? 'Scraping...' : 'Start Scraping'}
+                        </Button>
+                      </div>
+                    </Card>
+                  )}
                   {searchResult && searchResult.news && (
-  <Card className="mb-6" title={`News and Sentiment for ${searchResult.symbol}`} bordered>
-    <List
-      itemLayout="vertical"
-      dataSource={searchResult.news}
-      renderItem={(item, index) => (
-        <List.Item key={index}>
-          <Typography.Title level={4} style={{ margin: 0 }}>
-            {item.title}
-          </Typography.Title>
-          <Typography.Paragraph>
-            Published By - <strong>{item.publisher}</strong> on{' '}
-            <strong>{item.publish_time}</strong>
-          </Typography.Paragraph>
-          <a href={item.url} target="_blank" rel="noopener noreferrer">
-            Read More
-          </a>
-          <br />
-          <Tag color={searchResult.sentiment[index].sentiment === 'Positive' ? 'green' : searchResult.sentiment[index].sentiment === 'Negative' ? 'red' : 'gold'}>
-            Sentiment: {searchResult.sentiment[index].sentiment}
-          </Tag>
-          <Tag color="blue">Score: {searchResult.sentiment[index].score}</Tag>
-        </List.Item>
-      )}
-    />
-  </Card>
-)}
+                    <Card className="mb-6" title={`News and Sentiment for ${searchResult.symbol}`} bordered>
+                      <List
+                        itemLayout="vertical"
+                        dataSource={searchResult.news}
+                        renderItem={(item, index) => (
+                          <List.Item key={index}>
+                            <Typography.Title level={4} style={{ margin: 0 }}>
+                              {item.title}
+                            </Typography.Title>
+                            <Typography.Paragraph>
+                              Published By - <strong>{item.publisher}</strong> on{' '}
+                              <strong>{item.publish_time}</strong>
+                            </Typography.Paragraph>
+                            <a href={item.url} target="_blank" rel="noopener noreferrer">
+                              Read More
+                            </a>
+                            <br />
+                            <Tag color={searchResult.sentiment[index].sentiment === 'Positive' ? 'green' : searchResult.sentiment[index].sentiment === 'Negative' ? 'red' : 'gold'}>
+                              Sentiment: {searchResult.sentiment[index].sentiment}
+                            </Tag>
+                            <Tag color="blue">Score: {searchResult.sentiment[index].score}</Tag>
+                          </List.Item>
+                        )}
+                      />
+                    </Card>
+                  )}
                 </div>
 
                 {gainers.length > 0 && (
@@ -355,35 +365,35 @@ function App() {
                   />
                 )}
 
-{news.length > 0 && (
-  selectedGainer && (
-    <Card className="mb-6" title={`News and Sentiment for ${selectedGainer}`} bordered>
-      <List
-        itemLayout="vertical"
-        dataSource={news}
-        renderItem={(item, index) => (
-          <List.Item key={index}>
-            <Typography.Title level={4} style={{ margin: 0 }}>
-              {item.title}
-            </Typography.Title>
-            <Typography.Paragraph>
-              Published By - <strong>{item.publisher}</strong> on{' '}
-              <strong>{item.publish_time}</strong>
-            </Typography.Paragraph>
-            <a href={item.url} target="_blank" rel="noopener noreferrer">
-              Read More
-            </a>
-            <br />
-            <Tag color={sentiment[index].sentiment === 'Positive' ? 'green' : sentiment[index].sentiment === 'Negative' ? 'red' : 'gold'}>
-              Sentiment: {sentiment[index].sentiment}
-            </Tag>
-            <Tag color="blue">Score: {sentiment[index].score}</Tag>
-          </List.Item>
-        )}
-      />
-    </Card>
-  )
-)}
+                {news.length > 0 && (
+                  selectedGainer && (
+                    <Card className="mb-6" title={`News and Sentiment for ${selectedGainer}`} bordered>
+                      <List
+                        itemLayout="vertical"
+                        dataSource={news}
+                        renderItem={(item, index) => (
+                          <List.Item key={index}>
+                            <Typography.Title level={4} style={{ margin: 0 }}>
+                              {item.title}
+                            </Typography.Title>
+                            <Typography.Paragraph>
+                              Published By - <strong>{item.publisher}</strong> on{' '}
+                              <strong>{item.publish_time}</strong>
+                            </Typography.Paragraph>
+                            <a href={item.url} target="_blank" rel="noopener noreferrer">
+                              Read More
+                            </a>
+                            <br />
+                            <Tag color={sentiment[index].sentiment === 'Positive' ? 'green' : sentiment[index].sentiment === 'Negative' ? 'red' : 'gold'}>
+                              Sentiment: {sentiment[index].sentiment}
+                            </Tag>
+                            <Tag color="blue">Score: {sentiment[index].score}</Tag>
+                          </List.Item>
+                        )}
+                      />
+                    </Card>
+                  )
+                )}
               </>
             )}
           </div>
