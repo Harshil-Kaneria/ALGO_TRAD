@@ -2,6 +2,7 @@ import eventlet
 eventlet.monkey_patch()
 import talib
 import time
+import argparse
 from flask import Flask, jsonify, request, redirect, render_template
 from flask_cors import CORS
 from kite_trade import KiteApp
@@ -1071,10 +1072,242 @@ def handle_connect():
 def handle_disconnect():
     print('Client disconnected')
 
+def get_top_50_nse_symbols():
+    try:
+        # List of top 50 NSE companies by market cap (Nifty 50 constituents)
+        nifty50_symbols = [
+            'RELIANCE', 'TCS', 'HDFCBANK', 'ICICIBANK', 'HINDUNILVR', 
+            'INFY', 'ITC', 'SBIN', 'BHARTIARTL', 'HDFC', 'KOTAKBANK', 
+            'LT', 'BAJFINANCE', 'ASIANPAINT', 'AXISBANK', 'MARUTI', 
+            'TITAN', 'SUNPHARMA', 'WIPRO', 'ULTRACEMCO', 'NESTLEIND', 
+            'POWERGRID', 'TATAMOTORS', 'ADANIENT', 'NTPC', 'BAJAJFINSV',
+            'HCLTECH', 'M&M', 'TECHM', 'COALINDIA', 'HINDALCO', 'JSWSTEEL',
+            'TATASTEEL', 'GRASIM', 'INDUSINDBK', 'APOLLOHOSP', 'ADANIPORTS',
+            'CIPLA', 'DRREDDY', 'BRITANNIA', 'SBILIFE', 'EICHERMOT',
+            'DIVISLAB', 'BAJAJ-AUTO', 'TATACONSUM', 'UPL', 'HEROMOTOCO',
+            'HINDUNILVR', 'ONGC', 'BPCL'
+        ]
+        return nifty50_symbols
+    except Exception as e:
+        print(f"Error getting top 50 symbols: {str(e)}")
+        return []
+
+def generate_stock_analysis():
+    try:
+        print("Starting stock analysis...")
+        
+        kite = get_kite_instance()
+        if not kite:
+            raise ValueError("KiteApp instance not initialized")
+            
+        instruments = kite.instruments("NSE")
+        top_50_symbols = get_top_50_nse_symbols()
+        
+        filtered_instruments = [
+            instrument for instrument in instruments 
+            if instrument['tradingsymbol'] in top_50_symbols
+        ]
+        
+        print(f"Processing {len(filtered_instruments)} top companies...")
+
+        analysis_results = []
+        
+        for idx, instrument in enumerate(filtered_instruments):
+            try:
+                symbol = instrument['tradingsymbol']
+                print(f"Processing {idx + 1}/{len(filtered_instruments)}: {symbol}")
+                
+                data = get_historical_data(symbol)
+                if data.empty:
+                    continue
+                    
+                data = calculate_technical_indicators(data)
+                regression_model = train_regression_model(data)
+                pytorch_model = train_pytorch_model(data)
+                signals = generate_signals(data, regression_model, pytorch_model)
+                
+                if signals is None:
+                    continue
+                
+                signals = convert_to_native_types(signals)
+                
+                # Enhanced analysis result with all data points
+                analysis_result = {
+                    'Symbol': symbol,
+                    'Current Price': float(signals['current_price']),
+                    'Entry Price': float(signals['entry_price']),
+                    # Convert boolean values to 1 or 0
+                    'Buy Signal': 1 if signals['buy_signal'] else 0,
+                    'Sell Signal': 1 if signals['sell_signal'] else 0,
+                    
+                    # Predictions
+                    'Predicted Price': float(signals['predictions']['predicted_price']),
+                    'Prediction Probability': float(signals['predictions']['probability']),
+                    'Prediction Confidence': signals['predictions']['confidence'],
+                    
+                    # Technical Indicators
+                    'RSI': float(signals['technical_signals']['rsi']),
+                    'MACD': float(signals['technical_signals']['macd']),
+                    'MACD Signal': float(signals['technical_signals']['macd_signal']),
+                    'Momentum': float(signals['technical_signals']['momentum']),
+                    
+                    # Bollinger Bands
+                    'BB Upper': float(signals['indicators']['bollinger_bands']['upper']),
+                    'BB Middle': float(signals['indicators']['bollinger_bands']['middle']),
+                    'BB Lower': float(signals['indicators']['bollinger_bands']['lower']),
+                    
+                    # Market Context
+                    'ADX': float(signals['market_context']['adx']),
+                    'Trend Strength': signals['market_context']['trend_strength'],
+                    'Volatility': signals['market_context']['volatility'],
+                    'Volume Trend': signals['market_context']['volume_trend'],
+                    
+                    # Momentum Indicators
+                    'ROC': float(signals['momentum']['roc']),
+                    'Momentum Value': float(signals['momentum']['value']),
+                    
+                    # Candlestick Patterns - Convert to 1 or 0
+                    'Pattern_DOJI': 1 if signals['patterns']['DOJI'] != 0 else 0,
+                    'Pattern_ENGULFING': 1 if signals['patterns']['ENGULFING'] != 0 else 0,
+                    'Pattern_EVENING_STAR': 1 if signals['patterns']['EVENING_STAR'] != 0 else 0,
+                    'Pattern_HAMMER': 1 if signals['patterns']['HAMMER'] != 0 else 0,
+                    'Pattern_MORNING_STAR': 1 if signals['patterns']['MORNING_STAR'] != 0 else 0,
+                    'Pattern_SHOOTING_STAR': 1 if signals['patterns']['SHOOTING_STAR'] != 0 else 0,
+                    'Pattern_THREE_BLACK_CROWS': 1 if signals['patterns']['THREE_BLACK_CROWS'] != 0 else 0,
+                    'Pattern_THREE_WHITE_SOLDIERS': 1 if signals['patterns']['THREE_WHITE_SOLDIERS'] != 0 else 0,
+                    
+                    # Trend Analysis - Convert to 1 or 0
+                    'Short Term Trend': 1 if signals['trend_analysis']['short_term'] == 'Bullish' else 0,
+                    'Medium Term Trend': 1 if signals['trend_analysis']['medium_term'] == 'Bullish' else 0,
+                    'Long Term Trend': 1 if signals['trend_analysis']['long_term'] == 'Bullish' else 0,
+                    
+                    # Volume Analysis
+                    'Current Volume': float(signals['volume']['current']),
+                    'Average Volume': float(signals['volume']['average']),
+                    'Volume Above Average': 1 if signals['volume']['current'] > signals['volume']['average'] else 0
+                }
+                
+                analysis_results.append(analysis_result)
+                
+            except Exception as e:
+                print(f"Error processing {symbol}: {str(e)}")
+                continue
+        
+        df = pd.DataFrame(analysis_results)
+        
+        # Enhanced scoring system
+        df['Technical Score'] = (
+            (df['RSI'].clip(0, 100) / 100 * 0.2) +
+            ((df['MACD'] > df['MACD Signal']).astype(float) * 0.2) +
+            (df['Prediction Probability'] * 0.3) +
+            (df['Current Volume'] > df['Average Volume']).astype(float) * 0.15 +
+            ((df['Short Term Trend'] == 'Bullish').astype(float) * 0.15)
+        )
+        
+        df_sorted = df.sort_values('Technical Score', ascending=False)
+
+        boolean_columns = [
+            'Buy Signal', 'Sell Signal', 
+            'Pattern_DOJI', 'Pattern_ENGULFING', 'Pattern_EVENING_STAR',
+            'Pattern_HAMMER', 'Pattern_MORNING_STAR', 'Pattern_SHOOTING_STAR',
+            'Pattern_THREE_BLACK_CROWS', 'Pattern_THREE_WHITE_SOLDIERS',
+            'Short Term Trend', 'Medium Term Trend', 'Long Term Trend',
+            'Volume Above Average'
+        ]
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'stock_analysis_{timestamp}.xlsx'
+        
+        with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
+            df_sorted.to_excel(writer, sheet_name='Analysis', index=False)
+            
+            workbook = writer.book
+            worksheet = writer.sheets['Analysis']
+
+            boolean_format = workbook.add_format({
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'num_format': '0;0;0'  # This ensures numbers are displayed as 0 or 1
+            })
+            
+            # Enhanced formatting
+            header_format = workbook.add_format({
+                'bold': True,
+                'bg_color': '#D8E4BC',
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'text_wrap': True
+            })
+            
+            cell_format = workbook.add_format({
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter'
+            })
+            
+            # Format headers
+            for col_num, value in enumerate(df_sorted.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+            
+            # Add conditional formatting for different columns
+            worksheet.conditional_format('B2:B1048576', {
+                'type': '3_color_scale',
+                'min_color': '#FF9999',
+                'mid_color': '#FFFF99',
+                'max_color': '#99FF99'
+            })
+            
+            # RSI conditional formatting
+            worksheet.conditional_format('I2:I1048576', {
+                'type': '3_color_scale',
+                'min_value': 0,
+                'mid_value': 50,
+                'max_value': 100,
+                'min_color': '#FF9999',
+                'mid_color': '#FFFF99',
+                'max_color': '#99FF99'
+            })
+            
+            # Adjust column widths
+            for idx, col in enumerate(df_sorted.columns):
+                max_length = max(
+                    df_sorted[col].astype(str).apply(len).max(),
+                    len(str(col))
+                )
+                worksheet.set_column(idx, idx, max_length + 2)
+            
+            # Freeze top row
+            worksheet.freeze_panes(1, 0)
+            
+            # Add filters
+            worksheet.autofilter(0, 0, len(df_sorted), len(df_sorted.columns) - 1)
+
+            for col_num, col_name in enumerate(df_sorted.columns):
+                if col_name in boolean_columns:
+                    worksheet.set_column(col_num, col_num, None, boolean_format)
+        
+        print(f"Analysis complete! Results saved to {filename}")
+        return filename
+        
+    except Exception as e:
+        print(f"Error generating stock analysis: {str(e)}")
+        return None
+
 if __name__ == '__main__':
-    # Don't use app.run(), use socketio.run() instead
-    socketio.run(app, 
-                debug=True, 
-                host='0.0.0.0',  # Allow external connections
-                port=5000,       # Specify port if needed
-                use_reloader=False) 
+    # Create argument parser
+    parser = argparse.ArgumentParser(description='Stock Analysis and Trading Application')
+    parser.add_argument('--generate', type=str, choices=['true', 'false'], 
+                       help='Generate stock analysis report if true')
+    
+    args = parser.parse_args()
+    
+    # Check if generate flag is set to true
+    if args.generate and args.generate.lower() == 'true':
+        print("Generating stock analysis report...")
+        generate_stock_analysis()
+    else:
+        # Run the socket server
+        print("Starting socket server...")
+        socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
