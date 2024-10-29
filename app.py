@@ -102,20 +102,37 @@ def calculate_target_price(entry_price, target_profit_percentage):
     return entry_price * (1 + target_profit_percentage / 100)
 
 def calculate_advanced_pivot(previous_high, previous_low, previous_close):
-    pp = (previous_high + previous_low + previous_close) / 3
-    s1 = (2 * pp) - previous_high
-    s2 = pp - (previous_high - previous_low)
-    s3 = previous_low - 2 * (previous_high - pp)
-    
-    r1 = (2 * pp) - previous_low
-    r2 = pp + (previous_high - previous_low)
-    r3 = previous_high + 2 * (pp - previous_low)
-    
-    return {
-        'pp': pp,
-        'r1': r1, 'r2': r2, 'r3': r3,
-        's1': s1, 's2': s2, 's3': s3
-    }
+    try:
+        # Convert inputs to float if they're not already
+        previous_high = float(previous_high)
+        previous_low = float(previous_low)
+        previous_close = float(previous_close)
+        
+        # Calculate pivot point
+        pp = (previous_high + previous_low + previous_close) / 3
+        
+        # Calculate support and resistance levels
+        s1 = (2 * pp) - previous_high
+        s2 = pp - (previous_high - previous_low)
+        s3 = previous_low - 2 * (previous_high - pp)
+        
+        r1 = (2 * pp) - previous_low
+        r2 = pp + (previous_high - previous_low)
+        r3 = previous_high + 2 * (pp - previous_low)
+        
+        return {
+            'pp': float(pp),
+            'r1': float(r1), 'r2': float(r2), 'r3': float(r3),
+            's1': float(s1), 's2': float(s2), 's3': float(s3)
+        }
+    except Exception as e:
+        print(f"Error calculating pivot points: {e}")
+        # Return default values if calculation fails
+        return {
+            'pp': 0.0,
+            'r1': 0.0, 'r2': 0.0, 'r3': 0.0,
+            's1': 0.0, 's2': 0.0, 's3': 0.0
+        }
 
 def get_top_gainers():
     url = "https://finance.yahoo.com/markets/stocks/gainers/"
@@ -134,53 +151,63 @@ def get_top_gainers():
             return []
         
         gainers = []
-        for row in table.find_all('tr')[1:10]:
+        for row in table.find_all('tr')[1:10]:  # Get top 10 gainers
             cells = row.find_all('td')
             if len(cells) >= 4:
-
-                ticker = yf.Ticker(cells[0].text.strip().split()[0])
-                info = ticker.info
-                
-                # Get historical data for pivot point calculation
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=5)  # Get 5 days of data to ensure we have enough historical data
-                hist = ticker.history(start=start_date, end=end_date)
-                
-                if len(hist) < 2:
-                    raise ValueError("Not enough historical data to calculate pivot points")
-                
-                # Calculate pivot points using the previous day's data
-                previous_day = hist.iloc[-2]
-                pivot_points = calculate_advanced_pivot(previous_day['High'], previous_day['Low'], previous_day['Close'])
-                
-                # Current price
-                current_price = info.get('currentPrice', hist.iloc[-1]['Close'])
-                
-                # Determine position relative to pivot points
-                position = "At Pivot Point"
-                for level in ['s3', 's2', 's1', 'pp', 'r1', 'r2', 'r3']:
-                    if current_price < pivot_points[level]:
-                        position = f"Between {level.upper()} and {('r1' if level == 'pp' else 'pp' if level == 's1' else f's{int(level[1])+1}').upper()}"
-                        break
-                if current_price > pivot_points['r3']:
-                    position = "Above R3"
-                
-                stock_info = {
-                    'symbol': cells[0].text.strip().split()[0],
-                    'company': info.get('longName', 'N/A'),
-                    'price': current_price,
-                    'change': f"{info.get('regularMarketChangePercent', 0):.2f}%",
-                    'pivot_points': pivot_points,
-                    'position': position
-                }
-
-                gainers.append({
-                    'symbol': cells[0].text.strip().split()[0],
-                    'company': ' '.join(cells[0].text.strip().split()[1:]),
-                    'price': cells[1].text.strip(),
-                    'change': cells[2].text.strip(),
-                    'stock_info': stock_info
-                })
+                try:
+                    # Get the ticker symbol
+                    ticker = yf.Ticker(cells[0].text.strip().split()[0])
+                    info = ticker.info
+                    
+                    # Get historical data for pivot point calculation
+                    end_date = datetime.now()
+                    start_date = end_date - timedelta(days=5)  # Get 5 days of data
+                    hist = ticker.history(start=start_date, end=end_date, interval='1d')
+                    
+                    if len(hist) < 2:
+                        print(f"Not enough historical data for {cells[0].text.strip()}")
+                        continue
+                    
+                    # Calculate pivot points using the previous day's data
+                    previous_day = hist.iloc[-2]
+                    pivot_points = calculate_advanced_pivot(
+                        previous_day['High'], 
+                        previous_day['Low'], 
+                        previous_day['Close']
+                    )
+                    
+                    # Current price
+                    current_price = info.get('currentPrice', hist.iloc[-1]['Close'])
+                    
+                    # Determine position relative to pivot points
+                    position = "At Pivot Point"
+                    for level in ['s3', 's2', 's1', 'pp', 'r1', 'r2', 'r3']:
+                        if current_price < pivot_points[level]:
+                            position = f"Between {level.upper()} and {('r1' if level == 'pp' else 'pp' if level == 's1' else f's{int(level[1])+1}').upper()}"
+                            break
+                    if current_price > pivot_points['r3']:
+                        position = "Above R3"
+                    
+                    stock_info = {
+                        'symbol': cells[0].text.strip().split()[0],
+                        'company': info.get('longName', 'N/A'),
+                        'price': current_price,
+                        'change': f"{info.get('regularMarketChangePercent', 0):.2f}%",
+                        'pivot_points': pivot_points,
+                        'position': position
+                    }
+                    
+                    gainers.append({
+                        'symbol': cells[0].text.strip().split()[0],
+                        'company': ' '.join(cells[0].text.strip().split()[1:]),
+                        'price': cells[1].text.strip(),
+                        'change': cells[2].text.strip(),
+                        'stock_info': stock_info
+                    })
+                    
+                except Exception as e:
+                    print(f"Error processing stock {cells[0].text.strip()}: {str(e)}")
+                    continue
 
         return gainers
     except requests.RequestException as e:

@@ -79,29 +79,29 @@ function App() {
     if (!signals) return null;
 
     return (
-      <Card className="mb-4" title="Advanced Trading Analysis">
+      <Card className="mb-4" title="Advanced Trading Analysis" extra={<span className="text-gray-500">Last Updated: {new Date().toLocaleString()}</span>}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Trading Signals */}
           <Card type="inner" title="Trading Signals" className="bg-gray-50">
             <div className="space-y-2">
               <Tag color={signals.buy_signal ? "green" : "red"} className="w-full text-center">
-                Buy Signal: {signals.buy_signal ? "YES" : "NO"}
+                <i className={signals.buy_signal ? "icon-buy" : "icon-sell"} /> Buy Signal: {signals.buy_signal ? "YES" : "NO"}
               </Tag>
-              <Tag color={signals.sell_signal ? "green" : "red"} className="w-full text-center">
-                Sell Signal: {signals.sell_signal ? "YES" : "NO"}
+              <Tag color={signals.sell_signal ? "red" : "default"} className="w-full text-center">
+                <i className={signals.sell_signal ? "icon-sell" : "icon-neutral"} /> Sell Signal: {signals.sell_signal ? "YES" : "NO"}
               </Tag>
             </div>
           </Card>
 
           {/* Price Information */}
           <Card type="inner" title="Price Analysis" className="bg-gray-50">
-            <p><strong>Current Price:</strong>{signals.current_price.toFixed(2)}</p>
+            <p><strong>Current Price:</strong> <span className={signals.current_price < signals.entry_price ? "text-red-500" : "text-green-500"}>{signals.current_price.toFixed(2)}</span></p>
             <p><strong>Entry Price:</strong>{signals.entry_price.toFixed(2)}</p>
             <p><strong>Predicted Price:</strong>{signals.predictions.predicted_price.toFixed(2)}</p>
-            <p><strong>Confidence:</strong> {signals.predictions.confidence}</p>
+            <p><strong>Confidence:</strong>{signals.predictions.confidence}</p>
           </Card>
 
-          {/* Risk Management (optional) */}
+          {/* Risk Management */}
           {signals.risk_levels && (
             <Card type="inner" title="Risk Management" className="bg-gray-50">
               <p><strong>Stop Loss:</strong> ${signals.risk_levels.stop_loss.toFixed(2)}</p>
@@ -161,6 +161,7 @@ function App() {
       </Card>
     );
 };
+
 
 
   // Fetch user profile data
