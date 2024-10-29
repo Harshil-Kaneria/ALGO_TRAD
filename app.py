@@ -1,5 +1,6 @@
 import eventlet
 eventlet.monkey_patch()
+import talib
 import time
 from flask import Flask, jsonify, request, redirect, render_template
 from flask_cors import CORS
@@ -28,6 +29,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import LinearRegression
+from typing import List, Dict
+from scipy import stats
 
 app = Flask(__name__)
 CORS(app)
@@ -36,10 +39,56 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 load_dotenv()
 
 ENCTOKEN = os.getenv('ENCTOKEN')
-KITE_API_KEY = os.getenv('KITE_API_KEY')
+KITE_API_KEY = "TradeViaPython"
 
 # Global variable to hold the KiteApp instance
 kite_instance = KiteApp(enctoken=ENCTOKEN)
+
+# Define a simple neural network model
+class StockPricePredictor(nn.Module):
+    def __init__(self):
+        super(StockPricePredictor, self).__init__()
+        self.layer1 = nn.Linear(3, 64)
+        self.layer2 = nn.Linear(64, 32)
+        self.layer3 = nn.Linear(32, 16)
+        self.layer4 = nn.Linear(16, 1)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.2)
+        
+    def forward(self, x):
+        x = self.relu(self.layer1(x))
+        x = self.dropout(x)
+        x = self.relu(self.layer2(x))
+        x = self.dropout(x)
+        x = self.relu(self.layer3(x))
+        x = self.layer4(x)
+        return x
+
+class CandlePatternDetector:
+    def __init__(self):
+        self.patterns = {
+            'DOJI': talib.CDLDOJI,
+            'HAMMER': talib.CDLHAMMER,
+            'SHOOTING_STAR': talib.CDLSHOOTINGSTAR,
+            'ENGULFING': talib.CDLENGULFING,
+            'MORNING_STAR': talib.CDLMORNINGSTAR,
+            'EVENING_STAR': talib.CDLEVENINGSTAR,
+            'THREE_WHITE_SOLDIERS': talib.CDL3WHITESOLDIERS,
+            'THREE_BLACK_CROWS': talib.CDL3BLACKCROWS
+        }
+
+    def detect_patterns(self, df: pd.DataFrame) -> Dict[str, int]:
+        results = {}
+        for pattern_name, pattern_func in self.patterns.items():
+            pattern_value = pattern_func(
+                df['Open'].values,
+                df['High'].values,
+                df['Low'].values,
+                df['Close'].values
+            )[-1]
+            # Convert numpy.int32 to Python int
+            results[pattern_name] = int(pattern_value)
+        return results
 
 def get_kite_instance():
     return kite_instance
@@ -212,121 +261,318 @@ def analyze_sentiment(news_items):
 
     return sentiments
 
-# Define a simple neural network model
-class StockPricePredictor(nn.Module):
-    def __init__(self):
-        super(StockPricePredictor, self).__init__()
-        self.layer1 = nn.Linear(3, 64)
-        self.layer2 = nn.Linear(64, 32)
-        self.layer3 = nn.Linear(32, 16)
-        self.layer4 = nn.Linear(16, 1)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.2)
-        
-    def forward(self, x):
-        x = self.relu(self.layer1(x))
-        x = self.dropout(x)
-        x = self.relu(self.layer2(x))
-        x = self.dropout(x)
-        x = self.relu(self.layer3(x))
-        x = self.layer4(x)
-        return x
-
-# Function to fetch historical data
-def get_historical_data(symbol, interval='1d', period='1y'):  # Changed period from '1mo' to '1y'
+# Add technical indicators calculation function
+def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     try:
-        # Try multiple combinations to get the most data
-        data = None
-        suffixes = ['.NS', '.BO', '']  # Try NSE, BSE, and without suffix
+        # Convert price and volume columns to float64
+        numeric_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        for col in numeric_columns:
+            df[col] = df[col].astype('float64')
         
-        for suffix in suffixes:
-            try:
-                temp_data = yf.download(
-                    f"{symbol}{suffix}", 
-                    interval=interval, 
-                    period=period,
-                    progress=False
-                )
-                if len(temp_data) >= 50:  # If we get enough data, use this
-                    data = temp_data
-                    break
-                elif len(temp_data) > 0 and data is None:  # Keep the first valid data as backup
-                    data = temp_data
-            except:
-                continue
+        # Calculate SMAs first
+        df['SMA_20'] = df['Close'].rolling(window=20, min_periods=1).mean()
+        df['SMA_50'] = df['Close'].rolling(window=50, min_periods=1).mean()
+        df['Volume_MA'] = df['Volume'].rolling(window=20, min_periods=1).mean()
+        
+        # Basic indicators
+        df['RSI'] = talib.RSI(df['Close'].values, timeperiod=14)
+        df['MACD'], df['MACD_Signal'], df['MACD_Hist'] = talib.MACD(
+            df['Close'].values, fastperiod=12, slowperiod=26, signalperiod=9
+        )
+        
+        # Volume indicators
+        df['OBV'] = talib.OBV(df['Close'].values, df['Volume'].values)
+        df['ADL'] = talib.AD(df['High'].values, df['Low'].values, 
+                            df['Close'].values, df['Volume'].values)
+        
+        # Volatility indicators
+        df['ATR'] = talib.ATR(df['High'].values, df['Low'].values, 
+                             df['Close'].values, timeperiod=14)
+        df['BBANDS_Upper'], df['BBANDS_Middle'], df['BBANDS_Lower'] = talib.BBANDS(
+            df['Close'].values, timeperiod=20
+        )
+        
+        # Momentum indicators
+        df['MOM'] = talib.MOM(df['Close'].values, timeperiod=10)
+        df['ROC'] = talib.ROC(df['Close'].values, timeperiod=10)
+        
+        # Handle NaN values
+        df = df.ffill().bfill()
+        
+        # Print column names for debugging
+        print(f"Available columns: {df.columns.tolist()}")
+        
+        return df
+    except Exception as e:
+        print(f"Error in calculate_technical_indicators: {str(e)}")
+        return df
 
-        if data is None or len(data) == 0:
-            # If still no data, try fetching maximum available data
-            for suffix in suffixes:
-                try:
-                    data = yf.download(
-                        f"{symbol}{suffix}", 
-                        interval=interval, 
-                        period='max',
-                        progress=False
-                    )
-                    if len(data) > 0:
-                        break
-                except:
-                    continue
+class RealTimeStore:
+    def __init__(self):
+        self._data = {}
+        self._callbacks = {}
 
-        if data is None or len(data) == 0:
-            raise ValueError(f"No data found for symbol {symbol}")
+    def update_data(self, symbol: str, data: dict):
+        self._data[symbol] = data
+        # Trigger callbacks if any
+        if symbol in self._callbacks:
+            for callback in self._callbacks[symbol]:
+                callback(data)
 
-        # If we have less than 50 days of data, use data augmentation
-        if len(data) < 50:
-            # Augment the data by interpolation
-            data = data.resample('D').interpolate(method='cubic')
-            # Add some noise to make it more realistic
-            noise = np.random.normal(0, data['Close'].std() * 0.01, len(data))
-            data['Close'] = data['Close'] + noise
-            data['Open'] = data['Open'] + noise
-            data['High'] = data['High'] + noise
-            data['Low'] = data['Low'] + noise
-            
-        return data.tail(250)  # Return last 250 trading days for consistency
+    def get_data(self, symbol: str) -> dict:
+        return self._data.get(symbol)
+
+    def add_callback(self, symbol: str, callback):
+        if symbol not in self._callbacks:
+            self._callbacks[symbol] = []
+        self._callbacks[symbol].append(callback)
+
+# Create a global instance
+realtime_store = RealTimeStore()
+
+# Modify get_historical_data for 15-min candles
+def get_historical_data(symbol, interval='15minute', days=5):
+    try:
+        kite = get_kite_instance()
+        instrument_token = None
+        
+        # Find instrument token
+        instruments = kite.instruments("NSE")
+        for instrument in instruments:
+            if instrument['tradingsymbol'] == symbol:
+                instrument_token = instrument['instrument_token']
+                break
+        
+        if not instrument_token:
+            raise ValueError(f"Instrument token not found for {symbol}")
+        
+        # Get historical 15-minute data
+        from_date = datetime.now() - timedelta(days=days)
+        to_date = datetime.now()
+        historical_data = kite.historical_data(
+            instrument_token,
+            from_date,
+            to_date,
+            interval
+        )
+        
+        # Convert to DataFrame and standardize column names
+        df = pd.DataFrame(historical_data)
+        df.set_index('date', inplace=True)
+        
+        # Rename columns to match expected format
+        df = df.rename(columns={
+            'open': 'Open',
+            'high': 'High',
+            'low': 'Low',
+            'close': 'Close',
+            'volume': 'Volume'
+        })
+        
+        # Add real-time data if available
+        realtime_data = realtime_store.get_data(symbol)
+        if realtime_data:
+            # Ensure realtime data has matching column names
+            realtime_df = pd.DataFrame([{
+                'Open': realtime_data.get('open', realtime_data.get('Open')),
+                'High': realtime_data.get('high', realtime_data.get('High')),
+                'Low': realtime_data.get('low', realtime_data.get('Low')),
+                'Close': realtime_data.get('close', realtime_data.get('Close')),
+                'Volume': realtime_data.get('volume', realtime_data.get('Volume'))
+            }])
+            df = pd.concat([df, realtime_df])
+        
+        # Calculate technical indicators
+        df = calculate_technical_indicators(df)
+        
+        return df
         
     except Exception as e:
         print(f"Error fetching data for {symbol}: {str(e)}")
-        # Return synthetic data as fallback
-        dates = pd.date_range(end=datetime.now(), periods=250, freq='D')
-        synthetic_data = pd.DataFrame(index=dates)
-        base_price = 100
-        synthetic_data['Close'] = [base_price * (1 + np.random.normal(0, 0.02)) for _ in range(250)]
-        synthetic_data['Open'] = synthetic_data['Close'].shift(1) * (1 + np.random.normal(0, 0.01, 250))
-        synthetic_data['High'] = synthetic_data[['Open', 'Close']].max(axis=1) * (1 + abs(np.random.normal(0, 0.005, 250)))
-        synthetic_data['Low'] = synthetic_data[['Open', 'Close']].min(axis=1) * (1 - abs(np.random.normal(0, 0.005, 250)))
-        synthetic_data['Volume'] = np.random.randint(100000, 1000000, 250)
-        return synthetic_data
- 
+        return pd.DataFrame()
+
+# Add market sentiment analysis
+def analyze_market_sentiment(df: pd.DataFrame) -> Dict:
+    latest = df.iloc[-1]
+    
+    # Volume analysis
+    volume_sma = df['Volume'].rolling(window=20).mean().iloc[-1]
+    volume_trend = "High" if latest['Volume'] > volume_sma else "Low"
+    
+    # Trend strength
+    adx = talib.ADX(df['High'].values, df['Low'].values, df['Close'].values, timeperiod=14)[-1]
+    trend_strength = "Strong" if adx > 25 else "Weak" if adx > 20 else "No Trend"
+    
+    # Volatility
+    current_atr = latest['ATR']
+    avg_atr = df['ATR'].mean()
+    volatility = "High" if current_atr > avg_atr else "Low"
+    
+    return {
+        "volume_trend": volume_trend,
+        "trend_strength": trend_strength,
+        "volatility": volatility,
+        "adx": float(adx)  # Convert numpy.float64 to Python float
+    }
+
+class EnhancedPredictor:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df
+        self.pattern_detector = CandlePatternDetector()
+        
+    def get_prediction(self) -> Dict:
+        latest = self.df.iloc[-1]
+        patterns = self.pattern_detector.detect_patterns(self.df)
+        sentiment = analyze_market_sentiment(self.df)
+        
+        # Calculate probability based on multiple factors
+        bullish_factors = 0
+        bearish_factors = 0
+        
+        # Pattern analysis
+        for pattern, value in patterns.items():
+            if value > 0:
+                bullish_factors += 1
+            elif value < 0:
+                bearish_factors += 1
+        
+        # Technical indicator analysis
+        if latest['RSI'] > 70:
+            bearish_factors += 1
+        elif latest['RSI'] < 30:
+            bullish_factors += 1
+            
+        if latest['MACD'] > latest['MACD_Signal']:
+            bullish_factors += 1
+        else:
+            bearish_factors += 1
+            
+        if latest['Close'] > latest['BBANDS_Upper']:
+            bearish_factors += 1
+        elif latest['Close'] < latest['BBANDS_Lower']:
+            bullish_factors += 1
+            
+        # Volume analysis
+        if sentiment['volume_trend'] == "High":
+            if latest['Close'] > latest['Open']:
+                bullish_factors += 1
+            else:
+                bearish_factors += 1
+                
+        # Calculate probability
+        total_factors = bullish_factors + bearish_factors
+        if total_factors == 0:
+            probability = 0.5
+        else:
+            probability = bullish_factors / total_factors
+            
+        # Predict price movement
+        atr = latest['ATR']
+        current_price = latest['Close']
+        
+        predicted_movement = (probability - 0.5) * 2 * atr
+        predicted_price = current_price + predicted_movement
+        
+        return {
+            "current_price": float(current_price),
+            "predicted_price": float(predicted_price),
+            "probability": float(probability),
+            "confidence": "High" if abs(probability - 0.5) > 0.3 else "Medium" if abs(probability - 0.5) > 0.15 else "Low",
+            "patterns": {k: int(v) for k, v in patterns.items()},
+            "sentiment": {k: float(v) if isinstance(v, (np.int32, np.int64, np.float32, np.float64)) else v 
+                         for k, v in sentiment.items()},
+            "technical_signals": {
+                "rsi": float(latest['RSI']),
+                "macd": float(latest['MACD']),
+                "macd_signal": float(latest['MACD_Signal']),
+                "momentum": float(latest['MOM'])
+            }
+        }
+
+
 # Function to calculate indicators
 def calculate_indicators(data):
-    data['SMA_20'] = data['Close'].rolling(window=20).mean()
-    data['SMA_50'] = data['Close'].rolling(window=50).mean()
-    data['Volume_MA'] = data['Volume'].rolling(window=20).mean()
-    return data
- 
+    try:
+        # Make a copy to avoid modifying the original data
+        df = data.copy()
+        
+        # Convert all relevant columns to float64
+        numeric_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        for col in numeric_columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        # Calculate indicators
+        df['SMA_20'] = df['Close'].rolling(window=20, min_periods=1).mean()
+        df['SMA_50'] = df['Close'].rolling(window=50, min_periods=1).mean()
+        df['Volume_MA'] = df['Volume'].rolling(window=20, min_periods=1).mean()
+        
+        # Handle any remaining NaN values
+        df = df.fillna(method='ffill').fillna(method='bfill')
+        
+        # If still have NaN values after forward/backward fill, fill with mean
+        df = df.fillna(df.mean())
+        
+        return df
+        
+    except Exception as e:
+        print(f"Error in calculate_indicators: {str(e)}")
+        return data  # Return original data if calculation fails
+
 # Function to train the regression model
 def train_regression_model(data):
-    # Prepare features with proper column names
-    feature_columns = ['SMA_20', 'SMA_50', 'Volume_MA']
-    X = data[feature_columns].values
-    y = data['Close'].values
-    
-    # Create and fit the pipeline with named steps
-    pipeline = make_pipeline(
-        StandardScaler(with_mean=True, with_std=True),
-        LinearRegression()
-    )
-    
-    # Use last 80% of data for training to capture recent trends
-    train_size = int(len(data) * 0.8)
-    X_train = X[-train_size:]
-    y_train = y[-train_size:]
-    
-    pipeline.fit(X_train, y_train)
-    return pipeline
-
+    try:
+        # Handle NaN values first
+        data = data.copy()
+        data = data.ffill().bfill()
+        
+        # Prepare features with proper column names
+        feature_columns = ['SMA_20', 'SMA_50', 'Volume_MA']
+        
+        # Ensure all feature columns exist
+        for col in feature_columns:
+            if col not in data.columns:
+                if 'SMA' in col:
+                    window = int(col.split('_')[1])
+                    data[col] = data['Close'].rolling(window=window, min_periods=1).mean()
+                else:
+                    data[col] = data['Volume'].rolling(window=20, min_periods=1).mean()
+        
+        # Forward fill any remaining NaN values
+        data = data.ffill().bfill()
+        
+        # Convert to numpy arrays and ensure float64 dtype
+        X = data[feature_columns].values.astype(np.float64)
+        y = data['Close'].values.astype(np.float64)
+        
+        # Additional check for NaN values
+        if np.isnan(X).any() or np.isnan(y).any():
+            print("Warning: NaN values found after preprocessing")
+            # Remove rows with NaN values
+            mask = ~np.isnan(X).any(axis=1) & ~np.isnan(y)
+            X = X[mask]
+            y = y[mask]
+        
+        # Ensure we have enough data to train
+        if len(X) < 2:
+            raise ValueError("Not enough valid data points for training")
+        
+        # Use last 80% of data for training
+        train_size = int(len(X) * 0.8)
+        X_train = X[-train_size:]
+        y_train = y[-train_size:]
+        
+        # Create and fit the pipeline
+        pipeline = make_pipeline(
+            StandardScaler(),
+            LinearRegression()
+        )
+        
+        pipeline.fit(X_train, y_train)
+        return pipeline
+        
+    except Exception as e:
+        print(f"Error in train_regression_model: {str(e)}")
+        return make_pipeline(StandardScaler(), LinearRegression())
 
 # Function to train the PyTorch model
 def train_pytorch_model(data):
@@ -363,145 +609,107 @@ def train_pytorch_model(data):
 
 # Function to generate signals and predictions
 def generate_signals(data, regression_model, pytorch_model):
-    latest_data = data.iloc[-1]
-    previous_data = data.iloc[-2]
-    
-    # Calculate price momentum
-    price_change = (latest_data['Close'] - previous_data['Close']) / previous_data['Close'] * 100
-    volume_change = (latest_data['Volume'] - previous_data['Volume']) / previous_data['Volume'] * 100
-    
-    # Calculate trend strengths
-    sma20_trend = (latest_data['SMA_20'] - data['SMA_20'].rolling(window=5).mean().iloc[-1]) / data['SMA_20'].rolling(window=5).mean().iloc[-1] * 100
-    sma50_trend = (latest_data['SMA_50'] - data['SMA_50'].rolling(window=5).mean().iloc[-1]) / data['SMA_50'].rolling(window=5).mean().iloc[-1] * 100
-    
-    # Determine trends
-    short_term_trend = "Bullish" if latest_data['Close'] > latest_data['SMA_20'] else "Bearish"
-    medium_term_trend = "Bullish" if latest_data['SMA_20'] > latest_data['SMA_50'] else "Bearish"
-    
-    # More sophisticated pattern detection
-    pattern = "Bullish" if (
-        latest_data['Close'] > previous_data['Close'] and
-        latest_data['Close'] > latest_data['SMA_20'] and
-        volume_change > 0 and
-        sma20_trend > 0
-    ) else "Bearish"
-    
-    # Generate predictions
-    features = np.array([[
-        float(latest_data['SMA_20']),
-        float(latest_data['SMA_50']),
-        float(latest_data['Volume_MA'])
-    ]])
-    
-    # Get regression prediction
-    predicted_price_reg = float(regression_model.predict(features)[0])
-    
-    # Get PyTorch prediction
-    with torch.no_grad():
-        features_tensor = torch.tensor(features, dtype=torch.float32)
-        predicted_price_torch = float(pytorch_model(features_tensor).item())
-    
-    # Normalize predictions to be within reasonable range
-    current_price = float(latest_data['Close'])
-    max_change = 0.05  # 5% maximum change
-    
-    predicted_price_reg = max(min(
-        predicted_price_reg,
-        current_price * (1 + max_change)
-    ), current_price * (1 - max_change))
-    
-    predicted_price_torch = max(min(
-        predicted_price_torch,
-        current_price * (1 + max_change)
-    ), current_price * (1 - max_change))
-    
-    # Calculate consensus prediction
-    consensus_prediction = (predicted_price_reg + predicted_price_torch) / 2
-    prediction_trend = "Bullish" if consensus_prediction > current_price else "Bearish"
-    
-    # Generate buy/sell signals with more conditions
-    buy_signal = (
-        short_term_trend == "Bullish" and
-        medium_term_trend == "Bullish" and
-        latest_data['Volume'] > latest_data['Volume_MA'] and
-        price_change > 0 and
-        volume_change > 0 and
-        prediction_trend == "Bullish"
-    )
-    
-    sell_signal = (
-        short_term_trend == "Bearish" and
-        medium_term_trend == "Bearish" and
-        latest_data['Volume'] > latest_data['Volume_MA'] and
-        price_change < 0 and
-        prediction_trend == "Bearish"
-    )
-    
-    # Calculate support and resistance levels
-    support = min(latest_data['Low'], latest_data['SMA_20'])
-    resistance = max(latest_data['High'], latest_data['SMA_50'])
-    
-    return {
-        "buy_signal": int(buy_signal),
-        "sell_signal": int(sell_signal),
-        "entry_price": float(latest_data['Close']),
-        "stop_loss": float(support * 0.98),  # 2% below support
-        "take_profit": float(resistance * 1.02),  # 2% above resistance
-        "current_price": float(latest_data['Close']),
-        "price_change_percent": float(price_change),
-        "volume_change_percent": float(volume_change),
-        "short_term_trend": short_term_trend,
-        "medium_term_trend": medium_term_trend,
-        "overall_trend": medium_term_trend,
-        "pattern": pattern,
-        "predicted_price_reg": float(predicted_price_reg),
-        "predicted_price_torch": float(predicted_price_torch),
-        "consensus_prediction": float(consensus_prediction),
-        "prediction_trend": prediction_trend,
-        "current_sma_20": float(latest_data['SMA_20']),
-        "current_sma_50": float(latest_data['SMA_50']),
-        "current_volume": float(latest_data['Volume']),
-        "volume_trend": "High" if latest_data['Volume'] > latest_data['Volume_MA'] else "Low",
-        "support_level": float(support),
-        "resistance_level": float(resistance),
-        "trend_strength": {
-            "sma20": float(sma20_trend),
-            "sma50": float(sma50_trend)
+    try:
+        latest_data = data.iloc[-1]
+        print(f"Latest data: {latest_data}")  # Debug print
+        
+        # Calculate technical indicators and patterns
+        pattern_detector = CandlePatternDetector()
+        patterns = pattern_detector.detect_patterns(data)
+        sentiment = analyze_market_sentiment(data)
+        
+        # Enhanced prediction logic
+        predictor = EnhancedPredictor(data)
+        prediction = predictor.get_prediction()
+        
+        print(f"Generated prediction: {prediction}")  # Debug print
+        
+        return {
+            "buy_signal": bool(prediction['probability'] > 0.7 and prediction['confidence'] == "High"),
+            "sell_signal": bool(prediction['probability'] < 0.3 and prediction['confidence'] == "High"),
+            "entry_price": float(latest_data['Close']),
+            "current_price": float(latest_data['Close']),
+            "patterns": {k: float(v) if isinstance(v, (np.int32, np.int64, np.float32, np.float64)) else v 
+                        for k, v in patterns.items()},
+            "trend_analysis": {
+                "short_term": "Bullish" if prediction['probability'] > 0.6 else "Bearish",
+                "medium_term": "Bullish" if prediction['probability'] > 0.55 else "Bearish",
+                "long_term": "Bullish" if prediction['probability'] > 0.5 else "Bearish"
+            },
+            "predictions": {
+                k: float(v) if isinstance(v, (np.int32, np.int64, np.float32, np.float64)) else v 
+                for k, v in prediction.items()
+            },
+            "technical_signals": {
+                "rsi": float(latest_data['RSI']),
+                "macd": float(latest_data['MACD']),
+                "macd_signal": float(latest_data['MACD_Signal']),
+                "momentum": float(latest_data['MOM'])
+            },
+            "market_context": {
+                k: float(v) if isinstance(v, (np.int32, np.int64, np.float32, np.float64)) else v 
+                for k, v in sentiment.items()
+            },
+            "indicators": {
+                "rsi": float(latest_data['RSI']),
+                "macd": {
+                    "value": float(latest_data['MACD']),
+                    "signal": float(latest_data['MACD_Signal']),
+                    "histogram": float(latest_data['MACD_Hist'])
+                },
+                "bollinger_bands": {
+                    "upper": float(latest_data['BBANDS_Upper']),
+                    "middle": float(latest_data['BBANDS_Middle']),
+                    "lower": float(latest_data['BBANDS_Lower'])
+                }
+            },
+            "volume": {
+                "current": float(latest_data['Volume']),
+                "average": float(data['Volume'].mean()),
+                "trend": "Above Average" if latest_data['Volume'] > data['Volume'].mean() else "Below Average"
+            },
+            "momentum": {
+                "value": float(latest_data['MOM']),
+                "roc": float(latest_data['ROC'])
+            }
         }
-    }
-
+        
+    except Exception as e:
+        print(f"Error in generate_signals: {str(e)}")
+        return None
 
 # Add this function to continuously monitor signals
 def monitor_signals(symbol):
-    while True:
+    def on_tick_update(tick_data):
         try:
-            # Get historical data
+            # Get 15-minute candle data
             data = get_historical_data(symbol)
             if len(data) == 0:
-                continue
+                return
                 
-            # Calculate indicators
-            data = calculate_indicators(data)
+            # Generate predictions
+            predictor = EnhancedPredictor(data)
+            prediction = predictor.get_prediction()
             
-            # Train models
-            regression_model = train_regression_model(data)
-            pytorch_model = train_pytorch_model(data)
-            
-            # Generate signals
-            signals = generate_signals(data, regression_model, pytorch_model)
+            # Generate trading signals
+            signals = {
+                "buy_signal": int(prediction['probability'] > 0.7 and prediction['confidence'] == "High"),
+                "sell_signal": int(prediction['probability'] < 0.3 and prediction['confidence'] == "High"),
+                "prediction": prediction,
+                "timestamp": datetime.now().isoformat()
+            }
             
             # Emit the signals through WebSocket
             socketio.emit('signal_update', {
                 'symbol': symbol,
-                'signals': signals,
-                'timestamp': time.time()
+                'signals': signals
             })
             
         except Exception as e:
             print(f"Error monitoring signals for {symbol}: {str(e)}")
-            
-        # Wait for 1 minute before next update
-        time.sleep(60)
+
+    # Register callback for real-time updates
+    realtime_store.add_callback(symbol, on_tick_update)
 
 @app.route('/api/profile', methods=['GET'])
 def profile():
@@ -719,22 +927,54 @@ def get_signals(symbol):
     try:
         # Get historical data
         data = get_historical_data(symbol)
-        if len(data) == 0:
+        if data.empty:
             return jsonify({'error': f'No historical data available for {symbol}'}), 404
             
-        data = calculate_indicators(data)
+        print(f"Historical data shape: {data.shape}")  # Debug print
+        
+        # Calculate indicators
+        data = calculate_technical_indicators(data)
+        print(f"Data after technical indicators: {data.shape}")  # Debug print
+        
+        # Train models
         regression_model = train_regression_model(data)
         pytorch_model = train_pytorch_model(data)
+        
+        # Generate signals
         signals = generate_signals(data, regression_model, pytorch_model)
         
-        # Start monitoring thread if not already running
-        thread = threading.Thread(target=monitor_signals, args=(symbol,))
-        thread.daemon = True
-        thread.start()
+        if signals is None:
+            print("Signal generation returned None")  # Debug print
+            return jsonify({'error': 'Unable to generate signals', 'details': 'Signal generation failed'}), 500
+            
+        # Convert all numpy values to Python native types
+        def convert_to_native_types(obj):
+            if isinstance(obj, (np.int32, np.int64)):
+                return int(obj)
+            elif isinstance(obj, (np.float32, np.float64)):
+                return float(obj)
+            elif isinstance(obj, dict):
+                return {k: convert_to_native_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_to_native_types(item) for item in obj]
+            return obj
+            
+        signals = convert_to_native_types(signals)
+        print(f"Generated signals: {signals}")  # Debug print
+        
+        # Emit through WebSocket
+        socketio.emit('signal_update', {
+            'symbol': symbol,
+            'signals': signals
+        })
         
         return jsonify(signals)
         
     except Exception as e:
+        print(f"Error in get_signals for {symbol}: {str(e)}")
+        print(f"Exception type: {type(e)}")  # Additional debug info
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")  # Print full traceback
         return jsonify({
             'error': str(e),
             'details': 'Error occurred while processing signal data'

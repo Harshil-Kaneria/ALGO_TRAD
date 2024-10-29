@@ -77,59 +77,91 @@ function App() {
 
   const renderSignals = () => {
     if (!signals) return null;
-  
+
     return (
-      <Card className="mb-4" title="Real-time Signals">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Tag color={signals.buy_signal ? "green" : "default"}>
-              Buy Signal: {signals.buy_signal ? "Yes" : "No"}
-            </Tag>
-          </div>
-          <div>
-            <Tag color={signals.sell_signal ? "red" : "default"}>
-              Sell Signal: {signals.sell_signal ? "Yes" : "No"}
-            </Tag>
-          </div>
-          <div>
-            <p><strong>Entry Price:</strong> {signals.entry_price.toFixed(2)}</p>
-            <p><strong>Stop Loss:</strong> {signals.stop_loss.toFixed(2)}</p>
-            <p><strong>Take Profit:</strong> {signals.take_profit.toFixed(2)}</p>
-          </div>
-          <div>
-            <p><strong>Overall Trend:</strong> {signals.overall_trend}</p>
-            <p><strong>Short Term Trend:</strong> {signals.short_term_trend}</p>
-            <p><strong>Medium Term Trend:</strong> {signals.medium_term_trend}</p>
-            <p><strong>Pattern:</strong> {signals.pattern}</p>
-          </div>
-          <div>
-            <p><strong>Predicted Price (Reg):</strong> {signals.predicted_price_reg.toFixed(2)}</p>
-            <p><strong>Predicted Price (AI):</strong> {signals.predicted_price_torch.toFixed(2)}</p>
-            <p><strong>Consensus Prediction:</strong> {signals.consensus_prediction.toFixed(2)}</p>
-            <p><strong>Prediction Trend:</strong> {signals.prediction_trend}</p>
-          </div>
-          <div>
-            <p><strong>Current Price:</strong> {signals.current_price.toFixed(2)}</p>
-            <p><strong>Current SMA 20:</strong> {signals.current_sma_20.toFixed(2)}</p>
-            <p><strong>Current SMA 50:</strong> {signals.current_sma_50.toFixed(2)}</p>
-          </div>
-          <div>
-            <p><strong>Current Volume:</strong> {signals.current_volume.toLocaleString()}</p>
-            <p><strong>Volume Change:</strong> {signals.volume_change_percent.toFixed(2)}%</p>
-            <p><strong>Volume Trend:</strong> {signals.volume_trend}</p>
-            <p><strong>Price Change:</strong> {signals.price_change_percent.toFixed(2)}%</p>
-          </div>
-          <div>
-            <p><strong>Support Level:</strong> {signals.support_level.toFixed(2)}</p>
-            <p><strong>Resistance Level:</strong> {signals.resistance_level.toFixed(2)}</p>
-            <p><strong>Trend Strength (SMA 20):</strong> {signals.trend_strength.sma20.toFixed(2)}</p>
-            <p><strong>Trend Strength (SMA 50):</strong> {signals.trend_strength.sma50.toFixed(2)}</p>
-          </div>
+      <Card className="mb-4" title="Advanced Trading Analysis">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Trading Signals */}
+          <Card type="inner" title="Trading Signals" className="bg-gray-50">
+            <div className="space-y-2">
+              <Tag color={signals.buy_signal ? "green" : "red"} className="w-full text-center">
+                Buy Signal: {signals.buy_signal ? "YES" : "NO"}
+              </Tag>
+              <Tag color={signals.sell_signal ? "green" : "red"} className="w-full text-center">
+                Sell Signal: {signals.sell_signal ? "YES" : "NO"}
+              </Tag>
+            </div>
+          </Card>
+
+          {/* Price Information */}
+          <Card type="inner" title="Price Analysis" className="bg-gray-50">
+            <p><strong>Current Price:</strong>{signals.current_price.toFixed(2)}</p>
+            <p><strong>Entry Price:</strong>{signals.entry_price.toFixed(2)}</p>
+            <p><strong>Predicted Price:</strong>{signals.predictions.predicted_price.toFixed(2)}</p>
+            <p><strong>Confidence:</strong> {signals.predictions.confidence}</p>
+          </Card>
+
+          {/* Risk Management (optional) */}
+          {signals.risk_levels && (
+            <Card type="inner" title="Risk Management" className="bg-gray-50">
+              <p><strong>Stop Loss:</strong> ${signals.risk_levels.stop_loss.toFixed(2)}</p>
+              <p><strong>Take Profit:</strong> ${signals.risk_levels.take_profit.toFixed(2)}</p>
+              <p><strong>Risk/Reward Ratio:</strong> {signals.risk_levels.risk_reward_ratio}</p>
+            </Card>
+          )}
+
+          {/* Technical Analysis */}
+          <Card type="inner" title="Technical Analysis" className="bg-gray-50">
+            <p><strong>RSI:</strong> {signals.indicators.rsi.toFixed(2)}</p>
+            <p><strong>MACD:</strong> {signals.indicators.macd.value.toFixed(2)} (Signal: {signals.indicators.macd.signal.toFixed(2)})</p>
+          </Card>
+
+          {/* Market Context */}
+          <Card type="inner" title="Market Context" className="bg-gray-50">
+            <p><strong>Volume Trend:</strong> {signals.market_context.volume_trend}</p>
+            <p><strong>Trend Strength:</strong> {signals.market_context.trend_strength}</p>
+            <p><strong>Volatility:</strong> {signals.market_context.volatility}</p>
+            <p><strong>ADX:</strong> {signals.market_context.adx.toFixed(2)}</p>
+          </Card>
+
+          {/* Trend Analysis */}
+          <Card type="inner" title="Trend Analysis" className="bg-gray-50">
+            <p><strong>Short Term:</strong> {signals.trend_analysis.short_term}</p>
+            <p><strong>Medium Term:</strong> {signals.trend_analysis.medium_term}</p>
+            <p><strong>Long Term:</strong> {signals.trend_analysis.long_term}</p>
+          </Card>
+
+          {/* Volume Information */}
+          <Card type="inner" title="Volume Analysis" className="bg-gray-50">
+            <p><strong>Current Volume:</strong> {signals.volume.current.toLocaleString()}</p>
+            <p><strong>Average Volume:</strong> {signals.volume.average.toLocaleString()}</p>
+            <p><strong>Volume Trend:</strong> {signals.volume.trend}</p>
+          </Card>
+
+          {/* Momentum Indicators */}
+          <Card type="inner" title="Momentum Indicators" className="bg-gray-50">
+            <p><strong>Momentum:</strong> {signals.momentum.value.toFixed(2)}</p>
+            <p><strong>Rate of Change (ROC):</strong> {signals.momentum.roc.toFixed(2)}</p>
+          </Card>
+
+          {/* Pattern Recognition */}
+          <Card type="inner" title="Patterns Detected" className="bg-gray-50">
+            {Object.entries(signals.patterns).map(([pattern, value]) => (
+              value !== 0 && (
+                <Tag key={pattern} color={value > 0 ? "green" : "red"}>
+                  {pattern}
+                </Tag>
+              )
+            ))}
+            {Object.values(signals.patterns).every(value => value === 0) && (
+              <p>No patterns detected.</p>
+            )}
+          </Card>
         </div>
       </Card>
     );
-  };
-  
+};
+
 
   // Fetch user profile data
   const fetchProfileData = async () => {
@@ -219,13 +251,74 @@ function App() {
 
   const handleAnalysisSearch = async () => {
     try {
-      setSignals(null)
+      setSignals(null);
       const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/signals/${searchSymbol}`);
-      console.log(response);
+      if (response.data) {
+        console.log('Initial signals:', response.data);
+        setSignals(response.data);
+      }
     } catch (error) {
-      console.error('Error searching stock:', error);
+      console.error('Error fetching signals:', error);
+      notification.error({
+        message: 'Error',
+        description: error.response?.data?.error || 'Failed to fetch signals',
+      });
     }
   };
+  
+  // Update the WebSocket connection effect
+  useEffect(() => {
+    const newSocket = io(process.env.REACT_APP_API_BASE_URL, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5
+    });
+    
+    newSocket.on('connect', () => {
+      console.log('Connected to WebSocket');
+    });
+    
+    newSocket.on('signal_update', (data) => {
+      console.log('Received signal update:', data);
+      if (data.symbol === searchSymbol) {
+        console.log('Updating signals for', searchSymbol);
+        setSignals(data.signals);
+        
+        // Notifications for signals
+        if (data.signals.buy_signal) {
+          notification.success({
+            message: 'Buy Signal',
+            description: `Buy signal detected for ${data.symbol} at ${data.signals.entry_price}`,
+            placement: 'topRight',
+          });
+        }
+        
+        if (data.signals.sell_signal) {
+          notification.error({
+            message: 'Sell Signal',
+            description: `Sell signal detected for ${data.symbol} at ${data.signals.entry_price}`,
+            placement: 'topRight',
+          });
+        }
+      }
+    });
+    
+    newSocket.on('disconnect', () => {
+      console.log('Disconnected from WebSocket');
+    });
+    
+    newSocket.on('error', (error) => {
+      console.error('WebSocket error:', error);
+    });
+    
+    setSocket(newSocket);
+    
+    return () => {
+      if (newSocket) {
+        newSocket.close();
+      }
+    };
+  }, [searchSymbol]); 
 
   const handleSearch = async () => {
     handleAnalysisSearch()
