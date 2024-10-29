@@ -179,7 +179,7 @@ def get_top_gainers():
                     
                     # Get historical data for pivot point calculation
                     end_date = datetime.now()
-                    start_date = end_date - timedelta(days=5)  # Get 5 days of data
+                    start_date = end_date - timedelta(days=365)  # Get 5 days of data
                     hist = ticker.history(start=start_date, end=end_date, interval='1d')
                     
                     if len(hist) < 2:
@@ -375,31 +375,54 @@ class RealTimeStore:
 # Create a global instance
 realtime_store = RealTimeStore()
 
-# Modify get_historical_data for 15-min candles
-def get_historical_data(symbol, interval='15minute', days=5):
+# Modify get_historical_data for 5-min candles
+def get_historical_data(symbol, interval='5minute', days=30):
     try:
         kite = get_kite_instance()
-        instrument_token = None
+        if not kite:
+            raise ValueError("KiteApp instance is not initialized")
         
         # Find instrument token
-        instruments = kite.instruments("NSE")
-        for instrument in instruments:
-            if instrument['tradingsymbol'] == symbol:
-                instrument_token = instrument['instrument_token']
-                break
+        instrument_token = None
+        try:
+            instruments = kite.instruments("NSE")
+            for instrument in instruments:
+                if instrument['tradingsymbol'] == symbol:
+                    instrument_token = instrument['instrument_token']
+                    break
+                    
+            if not instrument_token:
+                # Try with common stock suffixes
+                for suffix in ['', '-EQ', '.NS']:
+                    modified_symbol = symbol + suffix
+                    for instrument in instruments:
+                        if instrument['tradingsymbol'] == modified_symbol:
+                            instrument_token = instrument['instrument_token']
+                            break
+                    if instrument_token:
+                        break
+        except Exception as e:
+            print(f"Error finding instrument token: {e}")
+            raise ValueError(f"Could not find instrument token for {symbol}")
         
         if not instrument_token:
             raise ValueError(f"Instrument token not found for {symbol}")
+            
+        print(f"Found instrument token {instrument_token} for {symbol}")  # Debug print
         
         # Get historical 15-minute data
         from_date = datetime.now() - timedelta(days=days)
         to_date = datetime.now()
+        
         historical_data = kite.historical_data(
             instrument_token,
             from_date,
             to_date,
             interval
         )
+        
+        if not historical_data:
+            raise ValueError(f"No historical data returned for {symbol}")
         
         # Convert to DataFrame and standardize column names
         df = pd.DataFrame(historical_data)
@@ -430,10 +453,15 @@ def get_historical_data(symbol, interval='15minute', days=5):
         # Calculate technical indicators
         df = calculate_technical_indicators(df)
         
+        if df.empty:
+            raise ValueError(f"No data available for {symbol}")
+            
+        print(f"Successfully fetched data for {symbol} with shape {df.shape}")  # Debug print
         return df
         
     except Exception as e:
         print(f"Error fetching data for {symbol}: {str(e)}")
+        # Return empty DataFrame instead of None
         return pd.DataFrame()
 
 # Add market sentiment analysis
@@ -834,7 +862,7 @@ def place_order():
         # Fetch historical data
         historical_data = kite.historical_data(
             instrument_token,
-            datetime.now() - datetime.timedelta(days=5),
+            datetime.now() - datetime.timedelta(days=365),
             datetime.now(),
             "day"
         )
@@ -926,7 +954,7 @@ def get_stock_details(symbol):
         
         # Get historical data for pivot point calculation
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=5)
+        start_date = end_date - timedelta(days=365)
         hist = ticker.history(start=start_date, end=end_date)
         
         if len(hist) < 2:
