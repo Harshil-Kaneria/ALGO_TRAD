@@ -93,6 +93,24 @@ class CandlePatternDetector:
 def get_kite_instance():
     return kite_instance
 
+def convert_to_native_types(obj):
+    """Convert numpy/pandas data types to native Python types for JSON serialization"""
+    if isinstance(obj, dict):
+        return {key: convert_to_native_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_to_native_types(item) for item in obj]
+    elif isinstance(obj, (np.int32, np.int64)):
+        return int(obj)
+    elif isinstance(obj, (np.float32, np.float64)):
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, (pd.Timestamp, datetime)):
+        return obj.isoformat()
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
+
 def is_market_open():
     now = datetime.now()
     return True
@@ -639,6 +657,35 @@ def generate_signals(data, regression_model, pytorch_model):
     try:
         latest_data = data.iloc[-1]
         print(f"Latest data: {latest_data}")  # Debug print
+
+        kite = get_kite_instance()
+        
+        # Extract symbol correctly from the data
+        try:
+            # First try to get symbol from the index name if it's a string
+            if isinstance(latest_data.name, str):
+                symbol = latest_data.name.split(':')[-1]
+            else:
+                # If index is a timestamp, try to get symbol from the data columns or parameters
+                # You might need to pass the symbol separately to this function
+                symbol = data.columns[0].split(':')[0] if ':' in data.columns[0] else None
+                
+            if not symbol:
+                # Fallback: try to get symbol from the first column name
+                symbol = data.columns[0].split('_')[0] if '_' in data.columns[0] else data.columns[0]
+            
+            symbol_with_exchange = f"NSE:{symbol}"
+            
+            # Try to get real-time price
+            ltp_data = kite.ltp([symbol_with_exchange])
+            current_price = ltp_data[symbol_with_exchange]['last_price']
+            print(f"Real-time price fetched: {current_price}")
+            
+        except Exception as price_error:
+            print(f"Error getting real-time price: {price_error}")
+            # Fallback to the last price from historical data
+            current_price = float(latest_data['Close'])
+            print(f"Using historical price: {current_price}")
         
         # Calculate technical indicators and patterns
         pattern_detector = CandlePatternDetector()
@@ -957,37 +1004,21 @@ def get_signals(symbol):
         if data.empty:
             return jsonify({'error': f'No historical data available for {symbol}'}), 404
             
-        print(f"Historical data shape: {data.shape}")  # Debug print
-        
         # Calculate indicators
         data = calculate_technical_indicators(data)
-        print(f"Data after technical indicators: {data.shape}")  # Debug print
         
         # Train models
         regression_model = train_regression_model(data)
         pytorch_model = train_pytorch_model(data)
         
-        # Generate signals
+        # Generate signals with the symbol
         signals = generate_signals(data, regression_model, pytorch_model)
         
         if signals is None:
-            print("Signal generation returned None")  # Debug print
-            return jsonify({'error': 'Unable to generate signals', 'details': 'Signal generation failed'}), 500
+            return jsonify({'error': 'Unable to generate signals'}), 500
             
-        # Convert all numpy values to Python native types
-        def convert_to_native_types(obj):
-            if isinstance(obj, (np.int32, np.int64)):
-                return int(obj)
-            elif isinstance(obj, (np.float32, np.float64)):
-                return float(obj)
-            elif isinstance(obj, dict):
-                return {k: convert_to_native_types(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_to_native_types(item) for item in obj]
-            return obj
-            
+        # Convert numpy values to native types
         signals = convert_to_native_types(signals)
-        print(f"Generated signals: {signals}")  # Debug print
         
         # Emit through WebSocket
         socketio.emit('signal_update', {
@@ -999,9 +1030,6 @@ def get_signals(symbol):
         
     except Exception as e:
         print(f"Error in get_signals for {symbol}: {str(e)}")
-        print(f"Exception type: {type(e)}")  # Additional debug info
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")  # Print full traceback
         return jsonify({
             'error': str(e),
             'details': 'Error occurred while processing signal data'
