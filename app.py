@@ -1072,7 +1072,7 @@ def handle_connect():
 def handle_disconnect():
     print('Client disconnected')
 
-def get_top_50_nse_symbols():
+def get_top_nse_symbols():
     try:
         # List of top 50 NSE companies by market cap (Nifty 50 constituents)
         nifty50_symbols = [
@@ -1101,11 +1101,11 @@ def generate_stock_analysis():
             raise ValueError("KiteApp instance not initialized")
             
         instruments = kite.instruments("NSE")
-        top_50_symbols = get_top_50_nse_symbols()
+        top_symbols = get_top_nse_symbols()
         
         filtered_instruments = [
             instrument for instrument in instruments 
-            if instrument['tradingsymbol'] in top_50_symbols
+            if instrument['tradingsymbol'] in top_symbols
         ]
         
         print(f"Processing {len(filtered_instruments)} top companies...")

@@ -2,7 +2,7 @@ import io from 'socket.io-client';
 import React, { useState, useEffect,useCallback } from 'react';
 import axios from 'axios';
 import GainersTable from './GainersTable';
-import { Card, Tag, Button, List, Typography, notification } from 'antd';
+import { Card, Tag, Button, List, Typography, notification,Select } from 'antd';
 
 function App() {
   const [profileData, setProfileData] = useState(null);
@@ -24,6 +24,7 @@ function App() {
   const [searchSymbol, setSearchSymbol] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [isSearchScrapingStarted, setIsSearchScrapingStarted] = useState(false);
+  const [searchOptions, setSearchOptions] = useState([]);
 
   const [socket, setSocket] = useState(null);
   const [signals, setSignals] = useState(null);
@@ -162,8 +163,6 @@ function App() {
     );
 };
 
-
-
   // Fetch user profile data
   const fetchProfileData = async () => {
     try {
@@ -186,6 +185,25 @@ function App() {
     } catch (error) {
       console.error('Error fetching instruments:', error);
     }
+  };
+
+  const handleSearchInput = (value) => {
+    if (!value) {
+      setSearchOptions([]);
+      return;
+    }
+
+    const filtered = instruments.filter(instrument =>
+      instrument.tradingsymbol.toLowerCase().includes(value.toLowerCase()) ||
+      instrument.name.toLowerCase().includes(value.toLowerCase())
+    );
+
+    const options = filtered.map(instrument => ({
+      value: instrument.tradingsymbol,
+      label: `${instrument.tradingsymbol} - ${instrument.name}`
+    }));
+
+    setSearchOptions(options);
   };
 
   // Place order function
@@ -482,19 +500,27 @@ function App() {
                   <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
                   <h2 className="text-2xl font-bold mb-4">Search Stock</h2>
                   <div className="flex items-center mb-4">
-                    <input
-                      type="text"
-                      value={searchSymbol}
-                      onChange={(e) => setSearchSymbol(e.target.value)}
-                      placeholder="Enter stock symbol"
-                      className="flex-grow border border-gray-300 rounded-l-md p-2"
-                    />
-                    <button
-                      onClick={handleSearch}
-                      className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 transition"
-                    >
-                      Search
-                    </button>
+                  <Select
+        showSearch
+        value={searchSymbol}
+        placeholder="Search for a stock"
+        defaultActiveFirstOption={false}
+        showArrow={false}
+        filterOption={false}
+        onSearch={handleSearchInput}
+        onChange={(value) => setSearchSymbol(value)}
+        notFoundContent={null}
+        options={searchOptions}
+        style={{ width: '100%' }}
+        className="flex-grow"
+      />
+      <Button
+        type="primary"
+        onClick={handleSearch}
+        className="ml-2"
+      >
+        Search
+      </Button>
                   </div>
                   {searchResult && (
                     <Card className="mb-4" title={`${searchResult.company} (${searchResult.symbol})`}>
