@@ -154,86 +154,128 @@ def calculate_advanced_pivot(previous_high, previous_low, previous_close):
         }
 
 def get_top_gainers():
-    url = "https://finance.yahoo.com/markets/stocks/gainers/"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        table = soup.find('table')
-        
-        if not table:
-            print("Table not found. The website structure might have changed.")
+        # Use MoneyControl's top gainers page
+        url = "https://www.moneycontrol.com/stocks/marketstats/nsegainer/index.php"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+
+        response = requests.get(url, headers=headers, timeout=15)
+        if response.status_code != 200:
+            print(f"Failed to fetch data. Status code: {response.status_code}")
             return []
+
+        # Parse the HTML content
+        soup = BeautifulSoup(response.content, 'html.parser')
         
+        # Try multiple possible table selectors
+        table = None
+        possible_selectors = [
+            {'class': 'mctable1'},
+            {'class': 'b_12'},
+            {'class': 'tbldata14 bdrtpg'},
+            {'id': 'gainers'},
+            {'class': 'responsive'}
+        ]
+        
+        for selector in possible_selectors:
+            table = soup.find('table', selector)
+            if table:
+                print(f"Found table with selector: {selector}")
+                break
+                
+        if not table:
+            # Try finding any table that contains relevant data
+            all_tables = soup.find_all('table')
+            for t in all_tables:
+                # Look for tables with typical gainer column headers
+                headers = t.find_all('th') or t.find_all('td', {'class': 'header'})
+                header_text = ' '.join(h.text.strip().lower() for h in headers)
+                if any(keyword in header_text for keyword in ['company', 'price', 'change', '%chg', 'volume']):
+                    table = t
+                    print("Found table using header content match")
+                    break
+
+        if not table:
+            print("Could not find the gainers table")
+            # Debug: Print the HTML structure
+            print("Available tables:")
+            for idx, t in enumerate(soup.find_all('table')):
+                print(f"Table {idx + 1} classes: {t.get('class', 'No class')} id: {t.get('id', 'No id')}")
+            return []
+
         gainers = []
-        for row in table.find_all('tr')[1:10]:  # Get top 10 gainers
-            cells = row.find_all('td')
-            if len(cells) >= 4:
-                try:
-                    # Get the ticker symbol
-                    ticker = yf.Ticker(cells[0].text.strip().split()[0])
-                    info = ticker.info
+        rows = table.find_all('tr')[1:11]  # Skip header row, get top 10
+        
+        for row in rows:
+            try:
+                cols = row.find_all('td')
+                if len(cols) >= 4:  # Ensure we have enough columns
+                    # Extract symbol and clean up the text
+                    symbol_text = cols[0].text.strip()
+                    symbol = symbol_text.split('Add to')[0].strip()
+                    if "Block Deal" in symbol:
+                        symbol = symbol.split("Block Deal")[0].strip()
                     
-                    # Get historical data for pivot point calculation
-                    end_date = datetime.now()
-                    start_date = end_date - timedelta(days=365)  # Get 5 days of data
-                    hist = ticker.history(start=start_date, end=end_date, interval='1d')
+                    # Clean up the price string
+                    price_text = cols[3].text.strip()
+                    if "Deal Price:" in price_text:
+                        price_str = price_text.split("Deal Price:")[1].strip()
+                    else:
+                        price_str = price_text
+                    price_str = ''.join(c for c in price_str if c.isdigit() or c in '.-')
                     
-                    if len(hist) < 2:
-                        print(f"Not enough historical data for {cells[0].text.strip()}")
+                    # Clean up the change string
+                    change_text = cols[6].text.strip()
+                    if "Value (cr):" in change_text:
+                        change_str = "0.0"
+                    else:
+                        change_str = ''.join(c for c in change_text if c.isdigit() or c in '.-')
+                    
+                    try:
+                        current_price = float(price_str)
+                        change_percent = float(change_str)
+                        
+                        # Normalize the percentage value if it's too large
+                        if abs(change_percent) > 100:
+                            change_percent = change_percent / 100
+                    except ValueError as ve:
+                        print(f"Error converting price/change for {symbol}: {ve}")
+                        print(f"Price string: '{price_str}', Change string: '{change_str}'")
                         continue
                     
-                    # Calculate pivot points using the previous day's data
-                    previous_day = hist.iloc[-2]
-                    pivot_points = calculate_advanced_pivot(
-                        previous_day['High'], 
-                        previous_day['Low'], 
-                        previous_day['Close']
-                    )
-                    
-                    # Current price
-                    current_price = info.get('currentPrice', hist.iloc[-1]['Close'])
-                    
-                    # Determine position relative to pivot points
-                    position = "At Pivot Point"
-                    for level in ['s3', 's2', 's1', 'pp', 'r1', 'r2', 'r3']:
-                        if current_price < pivot_points[level]:
-                            position = f"Between {level.upper()} and {('r1' if level == 'pp' else 'pp' if level == 's1' else f's{int(level[1])+1}').upper()}"
-                            break
-                    if current_price > pivot_points['r3']:
-                        position = "Above R3"
-                    
                     stock_info = {
-                        'symbol': cells[0].text.strip().split()[0],
-                        'company': info.get('longName', 'N/A'),
-                        'price': current_price,
-                        'change': f"{info.get('regularMarketChangePercent', 0):.2f}%",
-                        'pivot_points': pivot_points,
-                        'position': position
+                        "symbol": symbol,
+                        "company": symbol,
+                        "price": current_price,
+                        "change": f"{change_percent:.2f}%",
+                        "pivot_points": calculate_advanced_pivot(
+                            current_price * 1.01,
+                            current_price * 0.99,
+                            current_price
+                        ),
+                        "position": "Above R3" if change_percent > 0 else "Below S3"
                     }
-                    
-                    gainers.append({
-                        'symbol': cells[0].text.strip().split()[0],
-                        'company': ' '.join(cells[0].text.strip().split()[1:]),
-                        'price': cells[1].text.strip(),
-                        'change': cells[2].text.strip(),
-                        'stock_info': stock_info
-                    })
-                    
-                except Exception as e:
-                    print(f"Error processing stock {cells[0].text.strip()}: {str(e)}")
-                    continue
 
+                    gainers.append({
+                        "symbol": symbol,
+                        "company": symbol,
+                        "price": f"{current_price:,.2f}",
+                        "change": f"+{change_percent:.2f}%",
+                        "stock_info": stock_info
+                    })
+
+            except Exception as e:
+                print(f"Error processing row: {str(e)}")
+                print(f"Row content: {[col.text.strip() for col in cols]}")
+                continue
+
+        print(f"Found {len(gainers)} gainers")
         return gainers
-    except requests.RequestException as e:
-        print(f"Error fetching data: {e}")
-        return []
+
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Error in get_top_gainers: {str(e)}")
         return []
 
 def scrape_stock_news(symbol):
