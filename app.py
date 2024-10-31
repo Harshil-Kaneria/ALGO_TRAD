@@ -940,7 +940,7 @@ def place_order():
         # Fetch historical data
         historical_data = kite.historical_data(
             instrument_token,
-            datetime.now() - datetime.timedelta(days=365),
+            datetime.now() - datetime.timedelta(days=2),
             datetime.now(),
             "day"
         )
@@ -1032,7 +1032,7 @@ def get_stock_details(symbol):
         
         # Get historical data for pivot point calculation
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=365)
+        start_date = end_date - timedelta(days=2)
         hist = ticker.history(start=start_date, end=end_date)
         
         if len(hist) < 2:
