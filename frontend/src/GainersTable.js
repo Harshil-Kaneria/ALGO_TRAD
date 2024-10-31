@@ -5,8 +5,11 @@ const GainersTable = ({ gainers, isScrapingStarted, selectedGainer, startScrapin
     const dataSource = gainers.map((gainer, index) => ({
         key: index,
         symbol: gainer.symbol,
-        company: gainer.company,
-        price: gainer.price,
+        last_price: gainer.stock_info.last_price, // Corrected
+        price_high: gainer.stock_info.price_high, // Corrected
+        price_low: gainer.stock_info.price_low, // Corrected
+        price_prev_close: gainer.stock_info.price_prev_close, // Corrected
+        gain: gainer.stock_info.gain, // Corrected
         change: gainer.change,
         pivotPoints: gainer.stock_info.pivot_points,
         position: gainer.stock_info.position,
@@ -19,17 +22,32 @@ const GainersTable = ({ gainers, isScrapingStarted, selectedGainer, startScrapin
             key: 'symbol',
         },
         {
-            title: 'Company',
-            dataIndex: 'company',
-            key: 'company',
+            title: 'High Price',
+            dataIndex: 'price_high',
+            key: 'price_high',
         },
         {
-            title: 'Price',
-            dataIndex: 'price',
-            key: 'price',
+            title: 'Low Price',
+            dataIndex: 'price_low',
+            key: 'price_low',
         },
         {
-            title: 'Change',
+            title: 'Last Price',
+            dataIndex: 'last_price',
+            key: 'last_price',
+        },
+        {
+            title: 'Previous Price',
+            dataIndex: 'price_prev_close',
+            key: 'price_prev_close',
+        },
+        {
+            title: 'Changes',
+            dataIndex: 'gain',
+            key: 'gain',
+        },
+        {
+            title: 'Gain',
             dataIndex: 'change',
             key: 'change',
         },
@@ -67,7 +85,7 @@ const GainersTable = ({ gainers, isScrapingStarted, selectedGainer, startScrapin
             <p className="rounded-full bg-blue-500 text-white px-2">PP: {record.pivotPoints.pp}</p>
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <p className="font-semibold">Registance Levels:</p>
+                    <p className="font-semibold">Resistance Levels:</p>
                     <p className="rounded-full bg-red-500 text-white px-2">R1: {record.pivotPoints.r1}</p>
                     <p className="rounded-full bg-red-500 text-white px-2">R2: {record.pivotPoints.r2}</p>
                     <p className="rounded-full bg-red-500 text-white px-2">R3: {record.pivotPoints.r3}</p>

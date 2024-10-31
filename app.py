@@ -225,6 +225,34 @@ def get_top_gainers():
                     else:
                         price_str = price_text
                     price_str = ''.join(c for c in price_str if c.isdigit() or c in '.-')
+
+                    price_text = cols[1].text.strip()
+                    if "Deal Price:" in price_text:
+                        price_high_str = price_text.split("Deal Price:")[1].strip()
+                    else:
+                        price_high_str = price_text
+                    price_high_str = ''.join(c for c in price_high_str if c.isdigit() or c in '.-')
+
+                    price_text = cols[2].text.strip()
+                    if "Deal Price:" in price_text:
+                        price_low_str = price_text.split("Deal Price:")[1].strip()
+                    else:
+                        price_low_str = price_text
+                    price_low_str = ''.join(c for c in price_low_str if c.isdigit() or c in '.-')
+
+                    price_text = cols[4].text.strip()
+                    if "Deal Price:" in price_text:
+                        price_prev_close_str = price_text.split("Deal Price:")[1].strip()
+                    else:
+                        price_prev_close_str = price_text
+                    price_prev_close_str = ''.join(c for c in price_prev_close_str if c.isdigit() or c in '.-')
+
+                    price_text = cols[5].text.strip()
+                    if "Deal Price:" in price_text:
+                        price_change_str = price_text.split("Deal Price:")[1].strip()
+                    else:
+                        price_change_str = price_text
+                    price_change_str = ''.join(c for c in price_change_str if c.isdigit() or c in '.-')
                     
                     # Clean up the change string
                     change_text = cols[6].text.strip()
@@ -235,6 +263,10 @@ def get_top_gainers():
                     
                     try:
                         current_price = float(price_str)
+                        price_high_str = float(price_high_str)
+                        price_low_str = float(price_low_str)
+                        price_prev_close_str = float(price_prev_close_str)
+                        price_change_str = float(price_change_str)
                         change_percent = float(change_str)
                         
                         # Normalize the percentage value if it's too large
@@ -247,8 +279,11 @@ def get_top_gainers():
                     
                     stock_info = {
                         "symbol": symbol,
-                        "company": symbol,
-                        "price": current_price,
+                        "last_price": current_price,
+                        "price_high": price_high_str,
+                        "price_low": price_low_str,
+                        "price_prev_close": price_prev_close_str,
+                        "gain": price_change_str,
                         "change": f"{change_percent:.2f}%",
                         "pivot_points": calculate_advanced_pivot(
                             current_price * 1.01,
