@@ -32,6 +32,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import LinearRegression
 from typing import List, Dict
 from scipy import stats
+import re
+
 
 app = Flask(__name__)
 CORS(app)
@@ -153,9 +155,13 @@ def calculate_advanced_pivot(previous_high, previous_low, previous_close):
             's1': 0.0, 's2': 0.0, 's3': 0.0
         }
 
+def extract_price(price_text):
+    """Extract and clean price from text."""
+    price_str = re.sub(r"[^0-9.-]", "", price_text)
+    return float(price_str) if price_str else 0.0
+
 def get_top_gainers():
     try:
-        # Use MoneyControl's top gainers page
         url = "https://www.moneycontrol.com/stocks/marketstats/nsegainer/index.php"
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -166,144 +172,64 @@ def get_top_gainers():
             print(f"Failed to fetch data. Status code: {response.status_code}")
             return []
 
-        # Parse the HTML content
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Try multiple possible table selectors
-        table = None
-        possible_selectors = [
-            {'class': 'mctable1'},
-            {'class': 'b_12'},
-            {'class': 'tbldata14 bdrtpg'},
-            {'id': 'gainers'},
-            {'class': 'responsive'}
-        ]
-        
-        for selector in possible_selectors:
-            table = soup.find('table', selector)
-            if table:
-                print(f"Found table with selector: {selector}")
-                break
-                
-        if not table:
-            # Try finding any table that contains relevant data
-            all_tables = soup.find_all('table')
-            for t in all_tables:
-                # Look for tables with typical gainer column headers
-                headers = t.find_all('th') or t.find_all('td', {'class': 'header'})
-                header_text = ' '.join(h.text.strip().lower() for h in headers)
-                if any(keyword in header_text for keyword in ['company', 'price', 'change', '%chg', 'volume']):
-                    table = t
-                    print("Found table using header content match")
-                    break
+        # Locate the table
+        table = soup.find('table', {'class': 'mctable1'}) or next(
+            (t for t in soup.find_all('table') if any(keyword in t.text.lower() for keyword in ['company', 'price', 'change', '%chg', 'volume'])), 
+            None
+        )
 
         if not table:
             print("Could not find the gainers table")
-            # Debug: Print the HTML structure
-            print("Available tables:")
-            for idx, t in enumerate(soup.find_all('table')):
-                print(f"Table {idx + 1} classes: {t.get('class', 'No class')} id: {t.get('id', 'No id')}")
             return []
 
         gainers = []
-        rows = table.find_all('tr')[1:11]  # Skip header row, get top 10
+        rows = table.find_all('tr')[1:]  # Get all rows except the header
         
         for row in rows:
+            if len(gainers) >= 10:  # Stop if we have 10 gainers
+                break
             try:
                 cols = row.find_all('td')
-                if len(cols) >= 4:  # Ensure we have enough columns
-                    # Extract symbol and clean up the text
-                    symbol_text = cols[0].text.strip()
-                    symbol = symbol_text.split('Add to')[0].strip()
-                    if "Block Deal" in symbol:
-                        symbol = symbol.split("Block Deal")[0].strip()
-                    
-                    # Clean up the price string
-                    price_text = cols[3].text.strip()
-                    if "Deal Price:" in price_text:
-                        price_str = price_text.split("Deal Price:")[1].strip()
-                    else:
-                        price_str = price_text
-                    price_str = ''.join(c for c in price_str if c.isdigit() or c in '.-')
+                if len(cols) < 7:  # Ensure we have enough columns
+                    continue
 
-                    price_text = cols[1].text.strip()
-                    if "Deal Price:" in price_text:
-                        price_high_str = price_text.split("Deal Price:")[1].strip()
-                    else:
-                        price_high_str = price_text
-                    price_high_str = ''.join(c for c in price_high_str if c.isdigit() or c in '.-')
+                symbol = cols[0].text.split('Add to')[0].strip()
+                current_price = extract_price(cols[3].text)
+                price_high = extract_price(cols[1].text)
+                price_low = extract_price(cols[2].text)
+                price_prev_close = extract_price(cols[4].text)
+                price_change = extract_price(cols[5].text)
+                change_text = re.sub(r"[^0-9.-]", "", cols[6].text)  # Clean change percentage
+                change_percent = float(change_text) if change_text else 0.0
 
-                    price_text = cols[2].text.strip()
-                    if "Deal Price:" in price_text:
-                        price_low_str = price_text.split("Deal Price:")[1].strip()
-                    else:
-                        price_low_str = price_text
-                    price_low_str = ''.join(c for c in price_low_str if c.isdigit() or c in '.-')
+                # Normalize the percentage value
+                if abs(change_percent) > 100:
+                    change_percent /= 100
 
-                    price_text = cols[4].text.strip()
-                    if "Deal Price:" in price_text:
-                        price_prev_close_str = price_text.split("Deal Price:")[1].strip()
-                    else:
-                        price_prev_close_str = price_text
-                    price_prev_close_str = ''.join(c for c in price_prev_close_str if c.isdigit() or c in '.-')
+                stock_info = {
+                    "symbol": symbol,
+                    "last_price": current_price,
+                    "price_high": price_high,
+                    "price_low": price_low,
+                    "price_prev_close": price_prev_close,
+                    "gain": price_change,
+                    "change": f"{change_percent:.2f}%",
+                    "pivot_points": calculate_advanced_pivot(current_price * 1.01, current_price * 0.99, current_price),
+                    "position": "Above R3" if change_percent > 0 else "Below S3"
+                }
 
-                    price_text = cols[5].text.strip()
-                    if "Deal Price:" in price_text:
-                        price_change_str = price_text.split("Deal Price:")[1].strip()
-                    else:
-                        price_change_str = price_text
-                    price_change_str = ''.join(c for c in price_change_str if c.isdigit() or c in '.-')
-                    
-                    # Clean up the change string
-                    change_text = cols[6].text.strip()
-                    if "Value (cr):" in change_text:
-                        change_str = "0.0"
-                    else:
-                        change_str = ''.join(c for c in change_text if c.isdigit() or c in '.-')
-                    
-                    try:
-                        current_price = float(price_str)
-                        price_high_str = float(price_high_str)
-                        price_low_str = float(price_low_str)
-                        price_prev_close_str = float(price_prev_close_str)
-                        price_change_str = float(price_change_str)
-                        change_percent = float(change_str)
-                        
-                        # Normalize the percentage value if it's too large
-                        if abs(change_percent) > 100:
-                            change_percent = change_percent / 100
-                    except ValueError as ve:
-                        print(f"Error converting price/change for {symbol}: {ve}")
-                        print(f"Price string: '{price_str}', Change string: '{change_str}'")
-                        continue
-                    
-                    stock_info = {
-                        "symbol": symbol,
-                        "last_price": current_price,
-                        "price_high": price_high_str,
-                        "price_low": price_low_str,
-                        "price_prev_close": price_prev_close_str,
-                        "gain": price_change_str,
-                        "change": f"{change_percent:.2f}%",
-                        "pivot_points": calculate_advanced_pivot(
-                            current_price * 1.01,
-                            current_price * 0.99,
-                            current_price
-                        ),
-                        "position": "Above R3" if change_percent > 0 else "Below S3"
-                    }
-
-                    gainers.append({
-                        "symbol": symbol,
-                        "company": symbol,
-                        "price": f"{current_price:,.2f}",
-                        "change": f"+{change_percent:.2f}%",
-                        "stock_info": stock_info
-                    })
+                gainers.append({
+                    "symbol": symbol,
+                    "company": symbol,  # Assuming the company name is the same as symbol
+                    "price": f"{current_price:,.2f}",
+                    "change": f"+{change_percent:.2f}%",
+                    "stock_info": stock_info
+                })
 
             except Exception as e:
                 print(f"Error processing row: {str(e)}")
-                print(f"Row content: {[col.text.strip() for col in cols]}")
                 continue
 
         print(f"Found {len(gainers)} gainers")
