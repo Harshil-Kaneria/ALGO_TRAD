@@ -1175,6 +1175,7 @@ def get_top_nse_symbols(allData=False):
 def generate_stock_analysis():
     try:
         print("Starting stock analysis...")
+        start_time = time.time()
         
         kite = get_kite_instance()
         if not kite:
@@ -1188,11 +1189,14 @@ def generate_stock_analysis():
             if instrument['tradingsymbol'] in top_symbols
         ]
         
-        print(f"Processing {len(filtered_instruments)} top companies...")
+        print(f"Processing {len(filtered_instruments)} companies...")
 
         analysis_results = []
         
         for idx, instrument in enumerate(filtered_instruments):
+
+            stock_start_time = time.time()
+
             try:
                 symbol = instrument['tradingsymbol']
                 print(f"Processing {idx + 1}/{len(filtered_instruments)}: {symbol}")
@@ -1288,6 +1292,10 @@ def generate_stock_analysis():
                 print(f"Error processing {symbol}: {str(e)}")
                 continue
         
+            stock_end_time = time.time()
+            stock_elapsed_time = stock_end_time - stock_start_time
+            print(f"Processed {symbol} in {stock_elapsed_time:.2f} seconds")
+
         df = pd.DataFrame(analysis_results)
         
         # Enhanced scoring system
@@ -1302,43 +1310,29 @@ def generate_stock_analysis():
         
         df_sorted = df.sort_values(['Technical Score', 'Profit/Loss %'], ascending=[False, False])
 
-        boolean_columns = [
-            'Buy Signal', 'Sell Signal', 
-            'Pattern_DOJI', 'Pattern_ENGULFING', 'Pattern_EVENING_STAR',
-            'Pattern_HAMMER', 'Pattern_MORNING_STAR', 'Pattern_SHOOTING_STAR',
-            'Pattern_THREE_BLACK_CROWS', 'Pattern_THREE_WHITE_SOLDIERS',
-            'Short Term Trend', 'Medium Term Trend', 'Long Term Trend',
-            'Volume Above Average'
+        total_end_time = time.time()
+        total_elapsed_time = total_end_time - start_time
+        print(f"Total processing time: {total_elapsed_time:.2f} seconds")
+
+        # Filter for buy_stocks sheet
+        buy_stocks_df = df_sorted[
+            (df_sorted['Buy Signal'] == 1) &
+            (df_sorted['Current Price'] < 3000) &
+            (df_sorted['Profit/Loss %'] > 0.2)
         ]
+        
+        # Define all formats
+        header_format = None
+        boolean_format = None
+        cell_format = None
+        percent_format = None
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f'stock_analysis_{timestamp}.xlsx'
         
         with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
-            df_sorted.to_excel(writer, sheet_name='Analysis', index=False)
-            
+            # Get workbook object after initializing the writer
             workbook = writer.book
-            worksheet = writer.sheets['Analysis']
-
-            profit_loss_col = df_sorted.columns.get_loc('Profit/Loss %')
-            worksheet.conditional_format(1, profit_loss_col, len(df_sorted), profit_loss_col, {
-                'type': '3_color_scale',
-                'min_color': '#FF9999',  # Red for negative
-                'mid_color': '#FFFF99',  # Yellow for neutral
-                'max_color': '#99FF99',  # Green for positive
-                'min_value': -10,
-                'mid_value': 0,
-                'max_value': 10
-            })
-
-            boolean_format = workbook.add_format({
-                'border': 1,
-                'align': 'center',
-                'valign': 'vcenter',
-                'num_format': '0;0;0'  # This ensures numbers are displayed as 0 or 1
-            })
-            
-            # Enhanced formatting
             header_format = workbook.add_format({
                 'bold': True,
                 'bg_color': '#D8E4BC',
@@ -1348,61 +1342,88 @@ def generate_stock_analysis():
                 'text_wrap': True
             })
             
+            boolean_format = workbook.add_format({
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'num_format': '0;0;0'  # This ensures numbers are displayed as 0 or 1
+            })
+
             cell_format = workbook.add_format({
                 'border': 1,
                 'align': 'center',
                 'valign': 'vcenter'
             })
-            
-            # Format headers
-            for col_num, value in enumerate(df_sorted.columns.values):
-                worksheet.write(0, col_num, value, header_format)
-            
-            # Add conditional formatting for different columns
-            worksheet.conditional_format('B2:B1048576', {
-                'type': '3_color_scale',
-                'min_color': '#FF9999',
-                'mid_color': '#FFFF99',
-                'max_color': '#99FF99'
-            })
-            
-            # RSI conditional formatting
-            worksheet.conditional_format('I2:I1048576', {
-                'type': '3_color_scale',
-                'min_value': 0,
-                'mid_value': 50,
-                'max_value': 100,
-                'min_color': '#FF9999',
-                'mid_color': '#FFFF99',
-                'max_color': '#99FF99'
-            })
-            
-            # Adjust column widths
-            for idx, col in enumerate(df_sorted.columns):
-                max_length = max(
-                    df_sorted[col].astype(str).apply(len).max(),
-                    len(str(col))
-                )
-                worksheet.set_column(idx, idx, max_length + 2)
-            
-            # Freeze top row
-            worksheet.freeze_panes(1, 0)
-            
-            # Add filters
-            worksheet.autofilter(0, 0, len(df_sorted), len(df_sorted.columns) - 1)
 
-            for col_num, col_name in enumerate(df_sorted.columns):
-                if col_name in boolean_columns:
-                    worksheet.set_column(col_num, col_num, None, boolean_format)
-
-            # Add number format for Profit/Loss % column
             percent_format = workbook.add_format({
                 'border': 1,
                 'align': 'center',
                 'valign': 'vcenter',
                 'num_format': '0.00"%"'
             })
-            worksheet.set_column(profit_loss_col, profit_loss_col, None, percent_format)
+
+            # Write the data to Excel sheets
+            df_sorted.to_excel(writer, sheet_name='Analysis', index=False)
+            buy_stocks_df.to_excel(writer, sheet_name='Buy_stocks', index=False)
+
+            worksheet = writer.sheets['Analysis']
+            buy_stocks_worksheet = writer.sheets['Buy_stocks']
+
+            # Formatting and conditional formatting for Analysis sheet
+            for col_num, value in enumerate(df_sorted.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+
+            for col_num, value in enumerate(buy_stocks_df.columns.values):
+                buy_stocks_worksheet.write(0, col_num, value, header_format)
+
+            # Add conditional formatting for Analysis sheet and buy_stocks sheet
+            worksheet.conditional_format('B2:B1048576', {
+                'type': '3_color_scale',
+                'min_color': '#FF9999',
+                'mid_color': '#FFFF99',
+                'max_color': '#99FF99'
+            })
+
+            buy_stocks_worksheet.conditional_format('B2:B1048576', {
+                'type': '3_color_scale',
+                'min_color': '#FF9999',
+                'mid_color': '#FFFF99',
+                'max_color': '#99FF99'
+            })
+
+            # Adjust column widths and apply number formats
+            for idx, col in enumerate(df_sorted.columns):
+                max_length = max(
+                    df_sorted[col].astype(str).apply(len).max(),
+                    len(str(col))
+                )
+                worksheet.set_column(idx, idx, max_length + 2)
+
+            for idx, col in enumerate(buy_stocks_df.columns):
+                max_length = max(
+                    buy_stocks_df[col].astype(str).apply(len).max(),
+                    len(str(col))
+                )
+                buy_stocks_worksheet.set_column(idx, idx, max_length + 2)
+
+            # Freeze top row for both sheets
+            worksheet.freeze_panes(1, 0)
+            buy_stocks_worksheet.freeze_panes(1, 0)
+
+            # Add filters
+            worksheet.autofilter(0, 0, len(df_sorted), len(df_sorted.columns) - 1)
+            buy_stocks_worksheet.autofilter(0, 0, len(buy_stocks_df), len(buy_stocks_df.columns) - 1)
+
+            # Add number format for Profit/Loss % column
+            worksheet.set_column(df_sorted.columns.get_loc('Profit/Loss %'), 
+                                 df_sorted.columns.get_loc('Profit/Loss %'),
+                                 None, percent_format)
+
+            buy_stocks_worksheet.set_column(
+                buy_stocks_df.columns.get_loc('Profit/Loss %'), 
+                buy_stocks_df.columns.get_loc('Profit/Loss %'),
+                None, percent_format
+            )
 
         print(f"Analysis complete! Results saved to {filename}")
         return filename
@@ -1410,6 +1431,7 @@ def generate_stock_analysis():
     except Exception as e:
         print(f"Error generating stock analysis: {str(e)}")
         return None
+
 
 if __name__ == '__main__':
     # Create argument parser

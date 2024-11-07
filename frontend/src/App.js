@@ -1,8 +1,8 @@
 import io from 'socket.io-client';
-import React, { useState, useEffect,useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import GainersTable from './GainersTable';
-import { Card, Tag, Button, List, Typography, notification,Select } from 'antd';
+import { Card, Tag, Button, List, Typography, notification, Select } from 'antd';
 
 function App() {
   const [profileData, setProfileData] = useState(null);
@@ -28,13 +28,13 @@ function App() {
 
   const [socket, setSocket] = useState(null);
   const [signals, setSignals] = useState(null);
-  
+
   // Add this function to handle signal updates
   const handleSignalUpdate = useCallback((data) => {
     if (data.symbol === searchSymbol) {
-      console.log('data.signals',data.signals);
+      console.log('data.signals', data.signals);
       setSignals(data.signals);
-      
+
       // Update UI based on signals
       if (data.signals.buy_signal) {
         notification.success({
@@ -43,7 +43,7 @@ function App() {
           placement: 'topRight', // You can adjust the placement
         });
       }
-    
+
       if (data.signals.sell_signal) {
         notification.error({
           message: 'Sell Signal',
@@ -58,19 +58,19 @@ function App() {
   // Add WebSocket connection effect
   useEffect(() => {
     const newSocket = io(process.env.REACT_APP_API_BASE_URL);
-    
+
     newSocket.on('connect', () => {
       console.log('Connected to WebSocket');
     });
-    
+
     newSocket.on('signal_update', handleSignalUpdate);
-    
+
     newSocket.on('disconnect', () => {
       console.log('Disconnected from WebSocket');
     });
-    
+
     setSocket(newSocket);
-    
+
     return () => {
       newSocket.close();
     };
@@ -105,10 +105,10 @@ function App() {
 
           {/* Forecast Section */}
           <Card type="inner" title="Forecast (Day 1 - Day 5)" className="bg-gray-50">
-            <div className="space-y-2">
+            <div className="">
               {signals.forecast.daily_forecasts.map((forecast, index) => (
                 <p key={index}>
-                  <strong>Day {index + 1}:</strong> {forecast.predicted_price.toFixed(2)} 
+                  <strong>Day {index + 1}:</strong> {forecast.predicted_price.toFixed(2)}
                   <span className={`text-${forecast.profit_loss_pct > 0 ? "green" : "red"}-500`}>
                     ({forecast.profit_loss_pct.toFixed(2)}%)
                   </span>
@@ -182,7 +182,7 @@ function App() {
         </div>
       </Card>
     );
-};
+  };
 
   // Fetch user profile data
   const fetchProfileData = async () => {
@@ -305,7 +305,7 @@ function App() {
       });
     }
   };
-  
+
   // Update the WebSocket connection effect
   useEffect(() => {
     const newSocket = io(process.env.REACT_APP_API_BASE_URL, {
@@ -313,17 +313,17 @@ function App() {
       reconnection: true,
       reconnectionAttempts: 5
     });
-    
+
     newSocket.on('connect', () => {
       console.log('Connected to WebSocket');
     });
-    
+
     newSocket.on('signal_update', (data) => {
       console.log('Received signal update:', data);
       if (data.symbol === searchSymbol) {
         console.log('Updating signals for', searchSymbol);
         setSignals(data.signals);
-        
+
         // Notifications for signals
         if (data.signals.buy_signal) {
           notification.success({
@@ -332,7 +332,7 @@ function App() {
             placement: 'topRight',
           });
         }
-        
+
         if (data.signals.sell_signal) {
           notification.error({
             message: 'Sell Signal',
@@ -342,23 +342,23 @@ function App() {
         }
       }
     });
-    
+
     newSocket.on('disconnect', () => {
       console.log('Disconnected from WebSocket');
     });
-    
+
     newSocket.on('error', (error) => {
       console.error('WebSocket error:', error);
     });
-    
+
     setSocket(newSocket);
-    
+
     return () => {
       if (newSocket) {
         newSocket.close();
       }
     };
-  }, [searchSymbol]); 
+  }, [searchSymbol]);
 
   const handleSearch = async () => {
     handleAnalysisSearch()
@@ -418,7 +418,8 @@ function App() {
 
             {isMarketOpen && (
               <>
-                <div className="mb-6">
+
+                {/* <div className="mb-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="mb-4">
                       <label htmlFor="exchange" className="block text-sm font-medium text-gray-700">Exchange:</label>
@@ -514,34 +515,34 @@ function App() {
                       Submit This Order
                     </button>
                   </div>
-                </div>
+                </div> */}
 
 
                 <div className="mb-6">
                   <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
                   <h2 className="text-2xl font-bold mb-4">Search Stock</h2>
                   <div className="flex items-center mb-4">
-                  <Select
-        showSearch
-        value={searchSymbol}
-        placeholder="Search for a stock"
-        defaultActiveFirstOption={false}
-        showArrow={false}
-        filterOption={false}
-        onSearch={handleSearchInput}
-        onChange={(value) => setSearchSymbol(value)}
-        notFoundContent={null}
-        options={searchOptions}
-        style={{ width: '100%' }}
-        className="flex-grow"
-      />
-      <Button
-        type="primary"
-        onClick={handleSearch}
-        className="ml-2"
-      >
-        Search
-      </Button>
+                    <Select
+                      showSearch
+                      value={searchSymbol}
+                      placeholder="Search for a stock"
+                      defaultActiveFirstOption={false}
+                      showArrow={false}
+                      filterOption={false}
+                      onSearch={handleSearchInput}
+                      onChange={(value) => setSearchSymbol(value)}
+                      notFoundContent={null}
+                      options={searchOptions}
+                      style={{ width: '100%' }}
+                      className="flex-grow"
+                    />
+                    <Button
+                      type="primary"
+                      onClick={handleSearch}
+                      className="ml-2"
+                    >
+                      Search
+                    </Button>
                   </div>
                   {searchResult && (
                     <Card className="mb-4" title={`${searchResult.company} (${searchResult.symbol})`}>
