@@ -232,7 +232,6 @@ def get_top_gainers():
                 print(f"Error processing row: {str(e)}")
                 continue
 
-        print(f"Found {len(gainers)} gainers")
         return gainers
 
     except Exception as e:
@@ -348,9 +347,6 @@ def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         # Handle NaN values
         df = df.ffill().bfill()
         
-        # Print column names for debugging
-        print(f"Available columns: {df.columns.tolist()}")
-        
         return df
     except Exception as e:
         print(f"Error in calculate_technical_indicators: {str(e)}")
@@ -411,8 +407,6 @@ def get_historical_data(symbol, interval='5minute', days=30):
         
         if not instrument_token:
             raise ValueError(f"Instrument token not found for {symbol}")
-            
-        print(f"Found instrument token {instrument_token} for {symbol}")  # Debug print
         
         # Get historical 15-minute data
         from_date = datetime.now() - timedelta(days=days)
@@ -460,7 +454,6 @@ def get_historical_data(symbol, interval='5minute', days=30):
         if df.empty:
             raise ValueError(f"No data available for {symbol}")
             
-        print(f"Successfully fetched data for {symbol} with shape {df.shape}")  # Debug print
         return df
         
     except Exception as e:
@@ -688,7 +681,6 @@ def train_pytorch_model(data):
 def generate_signals(data, regression_model, pytorch_model):
     try:
         latest_data = data.iloc[-1]
-        print(f"Latest data: {latest_data}")  # Debug print
 
         kite = get_kite_instance()
         
@@ -711,7 +703,6 @@ def generate_signals(data, regression_model, pytorch_model):
             # Try to get real-time price
             ltp_data = kite.ltp([symbol_with_exchange])
             current_price = ltp_data[symbol_with_exchange]['last_price']
-            print(f"Real-time price fetched: {current_price}")
             
         except Exception as price_error:
             print(f"Error getting real-time price: {price_error}")
@@ -823,8 +814,6 @@ def generate_signals(data, regression_model, pytorch_model):
             }
         }
         
-        print(f"Generated prediction: {prediction}")  # Debug print
-        
         return signals
         
     except Exception as e:
@@ -923,9 +912,6 @@ def place_order():
         
         # Calculate advanced pivot points
         pp, s1, s2, s3, r1, r2, r3 = calculate_advanced_pivot(previous_high, previous_low, previous_close)
-        print("Pivot Point:", pp)
-        print("Support Levels:", s1, s2, s3)
-        print("Resistance Levels:", r1, r2, r3)
 
         ltp_data = kite.ltp(f"{exchange}:{stock_name}")
         current_price = ltp_data[f"{exchange}:{stock_name}"]['last_price']
@@ -940,7 +926,6 @@ def place_order():
             if current_price >= r1 - (r1 - pp) * 0.1:
                 return jsonify({"message": "DON'T BUY IT BECAUSE IT'S CLOSER TO R1"}), 400
             else:
-                print('Buy - ', current_price)
 
                 # buy_order = kite.place_order(
                 #     variety=kite.VARIETY_REGULAR,
@@ -957,9 +942,7 @@ def place_order():
                 kws = KiteTicker(api_key=KITE_API_KEY, access_token=ENCTOKEN+"&user_id="+user_id)
                 
                 def on_ticks(ws, ticks):
-                    print('ticks', ticks[0]["last_price"])
                     if target_price <= ticks[0]["last_price"]:
-                        print('Sell - ', target_price)
                         try:
                             # sell_order = kite.place_order(
                             #     variety=kite.VARIETY_REGULAR,
@@ -980,7 +963,6 @@ def place_order():
                 kws.connect(threaded=True)
                 while not kws.is_connected():
                     time.sleep(1)
-                print("WebSocket : Connected")
                 kws.subscribe([instrument_token])
                 kws.set_mode(kws.MODE_QUOTE, [instrument_token])
                 
@@ -1142,7 +1124,6 @@ def get_top_nse_symbols(allData=False):
             # Sort alphabetically
             symbols.sort()
             
-            print(f"Found {len(symbols)} NSE symbols")
             return symbols
         else:       # List of top 100 NSE companies by market cap
             top_nse_symbols = [
