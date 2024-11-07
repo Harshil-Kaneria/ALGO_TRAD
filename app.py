@@ -1075,24 +1075,54 @@ def handle_connect():
 def handle_disconnect():
     print('Client disconnected')
 
-def get_top_nse_symbols():
+def get_top_nse_symbols(allData=False):
     try:
-        # List of top 50 NSE companies by market cap (Nifty 50 constituents)
-        nifty50_symbols = [
-            'RELIANCE', 'TCS', 'HDFCBANK', 'ICICIBANK', 'HINDUNILVR', 
-            'INFY', 'ITC', 'SBIN', 'BHARTIARTL', 'HDFC', 'KOTAKBANK', 
-            'LT', 'BAJFINANCE', 'ASIANPAINT', 'AXISBANK', 'MARUTI', 
-            'TITAN', 'SUNPHARMA', 'WIPRO', 'ULTRACEMCO', 'NESTLEIND', 
-            'POWERGRID', 'TATAMOTORS', 'ADANIENT', 'NTPC', 'BAJAJFINSV',
-            'HCLTECH', 'M&M', 'TECHM', 'COALINDIA', 'HINDALCO', 'JSWSTEEL',
-            'TATASTEEL', 'GRASIM', 'INDUSINDBK', 'APOLLOHOSP', 'ADANIPORTS',
-            'CIPLA', 'DRREDDY', 'BRITANNIA', 'SBILIFE', 'EICHERMOT',
-            'DIVISLAB', 'BAJAJ-AUTO', 'TATACONSUM', 'UPL', 'HEROMOTOCO',
-            'HINDUNILVR', 'ONGC', 'BPCL'
-        ]
-        return nifty50_symbols
+        if allData==True:
+            kite = get_kite_instance()
+            if not kite:
+                raise ValueError("KiteApp instance not initialized")
+                
+            # Get all NSE instruments
+            instruments = kite.instruments("NSE")
+            
+            # Extract only the tradingsymbols
+            symbols = [instrument['tradingsymbol'] for instrument in instruments 
+                    if instrument.get('tradingsymbol')]
+            
+            # Filter out any None or empty values
+            symbols = [symbol for symbol in symbols if symbol]
+            
+            # Sort alphabetically
+            symbols.sort()
+            
+            print(f"Found {len(symbols)} NSE symbols")
+            return symbols
+        else:       # List of top 100 NSE companies by market cap
+            top_nse_symbols = [
+                'RELIANCE', 'TCS', 'HDFCBANK', 'ICICIBANK', 'HINDUNILVR',
+                'INFY', 'ITC', 'SBIN', 'BHARTIARTL', 'HDFC', 'KOTAKBANK',
+                'LT', 'BAJFINANCE', 'ASIANPAINT', 'AXISBANK', 'MARUTI',
+                'TITAN', 'SUNPHARMA', 'WIPRO', 'ULTRACEMCO', 'NESTLEIND',
+                'POWERGRID', 'TATAMOTORS', 'ADANIENT', 'NTPC', 'BAJAJFINSV',
+                'HCLTECH', 'M&M', 'TECHM', 'COALINDIA', 'HINDALCO',
+                'JSWSTEEL', 'TATASTEEL', 'GRASIM', 'INDUSINDBK', 'APOLLOHOSP',
+                'ADANIPORTS', 'CIPLA', 'DRREDDY', 'BRITANNIA', 'SBILIFE',
+                'EICHERMOT', 'DIVISLAB', 'BAJAJ-AUTO', 'TATACONSUM', 'UPL',
+                'HEROMOTOCO', 'ONGC', 'BPCL', 'GAIL', 'HINDPETRO',
+                'SHREECEM', 'ADANIGREEN', 'NMDC', 'HDFCLIFE', 'SBICARD',
+                'IDFCFIRSTB', 'TATAMETALI', 'ABB', 'SIEMENS', 'CUMMINSIND',
+                'MINDTREE', 'PIDILITE', 'HAVELLS', 'BANKBARODA', 'HINDZINC',
+                'MARICO', 'HDFCAMC', 'LTI', 'BIOCON', 'SREINFRA',
+                'UPL', 'TATAPOWER', 'JINDALSTEL', 'ACC', 'KNRCON',
+                'MOTILALOFS', 'TATACHEM', 'MINDTREE', 'SOMANYCERA', 
+                'CHOLAFIN', 'RECLTD', 'TVSMOTOR', 'AMBUJACEM', 'MGL',
+                'BERGEPAINT', 'APOLLOTYRE', 'IRCTC', 'NLCINDIA', 'LICHSGFIN',
+                'POLYCAB', 'LUXIND', 'GRAPHITE', 'TATAPOWER', 'GODREJCP',
+                'MCX', 'ICICIPRU', 'ICICIGI', 'DLF', 'HINDCOPPER'
+            ]
+            return top_nse_symbols
     except Exception as e:
-        print(f"Error getting top 50 symbols: {str(e)}")
+        print(f"Error getting symbols: {str(e)}")
         return []
 
 def generate_stock_analysis():
@@ -1133,12 +1163,17 @@ def generate_stock_analysis():
                     continue
                 
                 signals = convert_to_native_types(signals)
+
+                current_price = float(signals['current_price'])
+                predicted_price = float(signals['predictions']['predicted_price'])
+                profit_loss_pct = ((predicted_price - current_price) / current_price) * 100
                 
                 # Enhanced analysis result with all data points
                 analysis_result = {
                     'Symbol': symbol,
                     'Current Price': float(signals['current_price']),
                     'Entry Price': float(signals['entry_price']),
+                    'Profit/Loss %': round(profit_loss_pct, 2),
                     # Convert boolean values to 1 or 0
                     'Buy Signal': 1 if signals['buy_signal'] else 0,
                     'Sell Signal': 1 if signals['sell_signal'] else 0,
@@ -1200,14 +1235,15 @@ def generate_stock_analysis():
         
         # Enhanced scoring system
         df['Technical Score'] = (
-            (df['RSI'].clip(0, 100) / 100 * 0.2) +
-            ((df['MACD'] > df['MACD Signal']).astype(float) * 0.2) +
-            (df['Prediction Probability'] * 0.3) +
+            (df['RSI'].clip(0, 100) / 100 * 0.15) +
+            ((df['MACD'] > df['MACD Signal']).astype(float) * 0.15) +
+            (df['Prediction Probability'] * 0.25) +
             (df['Current Volume'] > df['Average Volume']).astype(float) * 0.15 +
-            ((df['Short Term Trend'] == 'Bullish').astype(float) * 0.15)
+            ((df['Short Term Trend'] == 'Bullish').astype(float) * 0.15) +
+            (df['Profit/Loss %'].clip(-100, 100) / 100 * 0.15)
         )
         
-        df_sorted = df.sort_values('Technical Score', ascending=False)
+        df_sorted = df.sort_values(['Technical Score', 'Profit/Loss %'], ascending=[False, False])
 
         boolean_columns = [
             'Buy Signal', 'Sell Signal', 
@@ -1226,6 +1262,17 @@ def generate_stock_analysis():
             
             workbook = writer.book
             worksheet = writer.sheets['Analysis']
+
+            profit_loss_col = df_sorted.columns.get_loc('Profit/Loss %')
+            worksheet.conditional_format(1, profit_loss_col, len(df_sorted), profit_loss_col, {
+                'type': '3_color_scale',
+                'min_color': '#FF9999',  # Red for negative
+                'mid_color': '#FFFF99',  # Yellow for neutral
+                'max_color': '#99FF99',  # Green for positive
+                'min_value': -10,
+                'mid_value': 0,
+                'max_value': 10
+            })
 
             boolean_format = workbook.add_format({
                 'border': 1,
@@ -1290,7 +1337,16 @@ def generate_stock_analysis():
             for col_num, col_name in enumerate(df_sorted.columns):
                 if col_name in boolean_columns:
                     worksheet.set_column(col_num, col_num, None, boolean_format)
-        
+
+            # Add number format for Profit/Loss % column
+            percent_format = workbook.add_format({
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'num_format': '0.00"%"'
+            })
+            worksheet.set_column(profit_loss_col, profit_loss_col, None, percent_format)
+
         print(f"Analysis complete! Results saved to {filename}")
         return filename
         
