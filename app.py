@@ -728,9 +728,45 @@ def generate_signals(data, regression_model, pytorch_model):
         predictor = EnhancedPredictor(data)
         prediction = predictor.get_prediction()
         
-        print(f"Generated prediction: {prediction}")  # Debug print
+        # Get 5-day forecast
+        forecast_days = 5
+        forecasted_prices = []
+        forecast_dates = []
+        current_features = np.array([
+            latest_data['SMA_20'],
+            latest_data['SMA_50'],
+            latest_data['Volume_MA']
+        ]).reshape(1, -1)
         
-        return {
+        # Generate forecast for next 5 days
+        for i in range(forecast_days):
+            # Get prediction for next day
+            predicted_price = float(regression_model.predict(current_features)[0])
+            forecasted_prices.append(predicted_price)
+            
+            # Calculate date for this forecast
+            forecast_date = (datetime.now() + timedelta(days=i+1)).strftime('%Y-%m-%d')
+            forecast_dates.append(forecast_date)
+            
+            # Update features for next prediction
+            # Simple update using moving average
+            current_features[0][0] = (current_features[0][0] * 19 + predicted_price) / 20  # Update SMA_20
+            current_features[0][1] = (current_features[0][1] * 49 + predicted_price) / 50  # Update SMA_50
+            # Keep volume MA constant or update based on historical average
+            
+        # Calculate profit/loss percentages for each forecasted day
+        profit_loss_pcts = [((price - current_price) / current_price) * 100 
+                           for price in forecasted_prices]
+        
+        # Create forecast dictionary
+        forecast_data = [{
+            'date': date,
+            'predicted_price': round(price, 2),
+            'profit_loss_pct': round(pct, 2)
+        } for date, price, pct in zip(forecast_dates, forecasted_prices, profit_loss_pcts)]
+
+        # Add forecast data to signals
+        signals = {
             "buy_signal": bool(prediction['probability'] > 0.7 and prediction['confidence'] == "High"),
             "sell_signal": bool(prediction['probability'] < 0.3 and prediction['confidence'] == "High"),
             "entry_price": float(latest_data['Close']),
@@ -777,8 +813,19 @@ def generate_signals(data, regression_model, pytorch_model):
             "momentum": {
                 "value": float(latest_data['MOM']),
                 "roc": float(latest_data['ROC'])
+            },
+            "forecast": {
+                'current_price': current_price,
+                'daily_forecasts': forecast_data,
+                'avg_5day_return': round(sum(profit_loss_pcts) / len(profit_loss_pcts), 2),
+                'max_profit_potential': round(max(profit_loss_pcts), 2),
+                'min_profit_potential': round(min(profit_loss_pcts), 2)
             }
         }
+        
+        print(f"Generated prediction: {prediction}")  # Debug print
+        
+        return signals
         
     except Exception as e:
         print(f"Error in generate_signals: {str(e)}")
@@ -1222,7 +1269,17 @@ def generate_stock_analysis():
                     # Volume Analysis
                     'Current Volume': float(signals['volume']['current']),
                     'Average Volume': float(signals['volume']['average']),
-                    'Volume Above Average': 1 if signals['volume']['current'] > signals['volume']['average'] else 0
+                    'Volume Above Average': 1 if signals['volume']['current'] > signals['volume']['average'] else 0,
+
+                    # 5-Day Forecast
+                    '5D_Avg_Return': float(signals['forecast']['avg_5day_return']),
+                    '5D_Max_Potential': float(signals['forecast']['max_profit_potential']),
+                    '5D_Min_Potential': float(signals['forecast']['min_profit_potential']),
+                    'Day1_Forecast': float(signals['forecast']['daily_forecasts'][0]['predicted_price']),
+                    'Day2_Forecast': float(signals['forecast']['daily_forecasts'][1]['predicted_price']),
+                    'Day3_Forecast': float(signals['forecast']['daily_forecasts'][2]['predicted_price']),
+                    'Day4_Forecast': float(signals['forecast']['daily_forecasts'][3]['predicted_price']),
+                    'Day5_Forecast': float(signals['forecast']['daily_forecasts'][4]['predicted_price']),
                 }
                 
                 analysis_results.append(analysis_result)
@@ -1240,7 +1297,7 @@ def generate_stock_analysis():
             (df['Prediction Probability'] * 0.25) +
             (df['Current Volume'] > df['Average Volume']).astype(float) * 0.15 +
             ((df['Short Term Trend'] == 'Bullish').astype(float) * 0.15) +
-            (df['Profit/Loss %'].clip(-100, 100) / 100 * 0.15)
+            (df['5D_Avg_Return'].clip(-100, 100) / 100 * 0.15)
         )
         
         df_sorted = df.sort_values(['Technical Score', 'Profit/Loss %'], ascending=[False, False])

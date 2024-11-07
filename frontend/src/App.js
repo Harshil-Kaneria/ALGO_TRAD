@@ -97,9 +97,24 @@ function App() {
           {/* Price Information */}
           <Card type="inner" title="Price Analysis" className="bg-gray-50">
             <p><strong>Current Price:</strong> <span className={signals.current_price < signals.entry_price ? "text-red-500" : "text-green-500"}>{signals.current_price.toFixed(2)}</span></p>
-            <p><strong>Entry Price:</strong>{signals.entry_price.toFixed(2)}</p>
-            <p><strong>Predicted Price:</strong>{signals.predictions.predicted_price.toFixed(2)}</p>
-            <p><strong>Confidence:</strong>{signals.predictions.confidence}</p>
+            <p><strong>Entry Price:</strong> {signals.entry_price.toFixed(2)}</p>
+            <p><strong>Predicted Price:</strong> {signals.predictions.predicted_price.toFixed(2)}</p>
+            <p><strong>Confidence:</strong> {signals.predictions.confidence}</p>
+            <p><strong>Profit/Loss Percentage:</strong><span className="text-blue-500">({((signals.predictions.predicted_price - signals.current_price) / signals.current_price * 100).toFixed(2)}%) </span></p>
+          </Card>
+
+          {/* Forecast Section */}
+          <Card type="inner" title="Forecast (Day 1 - Day 5)" className="bg-gray-50">
+            <div className="space-y-2">
+              {signals.forecast.daily_forecasts.map((forecast, index) => (
+                <p key={index}>
+                  <strong>Day {index + 1}:</strong> {forecast.predicted_price.toFixed(2)} 
+                  <span className={`text-${forecast.profit_loss_pct > 0 ? "green" : "red"}-500`}>
+                    ({forecast.profit_loss_pct.toFixed(2)}%)
+                  </span>
+                </p>
+              ))}
+            </div>
           </Card>
 
           {/* Risk Management */}
@@ -115,6 +130,12 @@ function App() {
           <Card type="inner" title="Technical Analysis" className="bg-gray-50">
             <p><strong>RSI:</strong> {signals.indicators.rsi.toFixed(2)}</p>
             <p><strong>MACD:</strong> {signals.indicators.macd.value.toFixed(2)} (Signal: {signals.indicators.macd.signal.toFixed(2)})</p>
+            <p><strong>Bollinger Bands:</strong></p>
+            <ul>
+              <li><strong>Upper:</strong> {signals.indicators.bollinger_bands.upper.toFixed(2)}</li>
+              <li><strong>Middle:</strong> {signals.indicators.bollinger_bands.middle.toFixed(2)}</li>
+              <li><strong>Lower:</strong> {signals.indicators.bollinger_bands.lower.toFixed(2)}</li>
+            </ul>
           </Card>
 
           {/* Market Context */}
