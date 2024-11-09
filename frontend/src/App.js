@@ -520,7 +520,16 @@ function App() {
 
                 <div className="mb-6">
                   <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-                  <h2 className="text-2xl font-bold mb-4">Search Stock</h2>
+                  <div className="flex items-center mb-4">
+                    <h2 className="text-2xl font-bold flex-grow">Search Stock</h2>
+                    <Button
+                      type="primary"
+                      onClick={handleSearch}
+                      className="ml-2"
+                    >
+                      Search
+                    </Button>
+                  </div>
                   <div className="flex items-center mb-4">
                     <Select
                       showSearch
@@ -536,13 +545,6 @@ function App() {
                       style={{ width: '100%' }}
                       className="flex-grow"
                     />
-                    <Button
-                      type="primary"
-                      onClick={handleSearch}
-                      className="ml-2"
-                    >
-                      Search
-                    </Button>
                   </div>
                   {searchResult && (
                     <Card className="mb-4" title={`${searchResult.company} (${searchResult.symbol})`}>
