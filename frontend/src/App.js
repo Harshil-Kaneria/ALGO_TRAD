@@ -579,7 +579,7 @@ function App() {
                       </div>
                     </Card>
                   )}
-                  {((searchResult && signals)) && (<>{renderSignals()}</>)}
+                  {((signals)) && (<>{renderSignals()}</>)}
                   {searchResult && searchResult.news && (
                     <Card className="mb-6" title={`News and Sentiment for ${searchResult.symbol}`} bordered>
                       <List
