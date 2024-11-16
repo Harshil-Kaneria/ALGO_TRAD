@@ -1,5 +1,6 @@
 import eventlet
-eventlet.monkey_patch()
+# eventlet.monkey_patch()
+
 import talib
 import time
 import argparse
@@ -49,35 +50,93 @@ kite_instance = KiteApp(enctoken=ENCTOKEN)
 
 # Define a simple neural network model
 class StockPricePredictor(nn.Module):
-    def __init__(self):
+    def __init__(self, input_size):
         super(StockPricePredictor, self).__init__()
-        self.layer1 = nn.Linear(3, 64)
+        
+        # Adjust the first layer to accept dynamic input size
+        self.layer1 = nn.Linear(input_size, 64)  # First layer takes 'input_size' features
         self.layer2 = nn.Linear(64, 32)
         self.layer3 = nn.Linear(32, 16)
-        self.layer4 = nn.Linear(16, 1)
+        self.layer4 = nn.Linear(16, 1)  # Output layer (1 because we're predicting next day's close)
+        
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.2)
         
     def forward(self, x):
+        # Forward pass with ReLU and Dropout
         x = self.relu(self.layer1(x))
         x = self.dropout(x)
         x = self.relu(self.layer2(x))
         x = self.dropout(x)
         x = self.relu(self.layer3(x))
-        x = self.layer4(x)
+        x = self.layer4(x)  # Output layer
         return x
 
 class CandlePatternDetector:
     def __init__(self):
+        # Updated patterns dictionary with all requested candlestick patterns
         self.patterns = {
-            'DOJI': talib.CDLDOJI,
-            'HAMMER': talib.CDLHAMMER,
-            'SHOOTING_STAR': talib.CDLSHOOTINGSTAR,
-            'ENGULFING': talib.CDLENGULFING,
-            'MORNING_STAR': talib.CDLMORNINGSTAR,
-            'EVENING_STAR': talib.CDLEVENINGSTAR,
+            'TWO_CROWS': talib.CDL2CROWS,
+            'THREE_BLACK_CROWS': talib.CDL3BLACKCROWS,
+            'THREE_INSIDE': talib.CDL3INSIDE,
+            'THREE_LINE_STRIKE': talib.CDL3LINESTRIKE,
+            'THREE_OUTSIDE': talib.CDL3OUTSIDE,
+            'THREE_STARS_IN_SOUTH': talib.CDL3STARSINSOUTH,
             'THREE_WHITE_SOLDIERS': talib.CDL3WHITESOLDIERS,
-            'THREE_BLACK_CROWS': talib.CDL3BLACKCROWS
+            'ABANDONED_BABY': talib.CDLABANDONEDBABY,
+            'ADVANCE_BLOCK': talib.CDLADVANCEBLOCK,
+            'BELT_HOLD': talib.CDLBELTHOLD,
+            'BREAKAWAY': talib.CDLBREAKAWAY,
+            'CLOSING_MARUBOZU': talib.CDLCLOSINGMARUBOZU,
+            'CONCEAL_BABY_SWALL': talib.CDLCONCEALBABYSWALL,
+            'COUNTERATTACK': talib.CDLCOUNTERATTACK,
+            'DARK_CLOUD_COVER': talib.CDLDARKCLOUDCOVER,
+            'DOJI': talib.CDLDOJI,
+            'DOJI_STAR': talib.CDLDOJISTAR,
+            'DRAGONFLY_DOJI': talib.CDLDRAGONFLYDOJI,
+            'ENGULFING': talib.CDLENGULFING,
+            'EVENING_DOJI_STAR': talib.CDLEVENINGDOJISTAR,
+            'EVENING_STAR': talib.CDLEVENINGSTAR,
+            'GAP_SIDE_SIDE_WHITE': talib.CDLGAPSIDESIDEWHITE,
+            'GRAVESTONE_DOJI': talib.CDLGRAVESTONEDOJI,
+            'HAMMER': talib.CDLHAMMER,
+            'HANGING_MAN': talib.CDLHANGINGMAN,
+            'HARAMI': talib.CDLHARAMI,
+            'HARAMI_CROSS': talib.CDLHARAMICROSS,
+            'HIGH_WAVE': talib.CDLHIGHWAVE,
+            'HIKKAKE': talib.CDLHIKKAKE,
+            'HIKKAKE_MOD': talib.CDLHIKKAKEMOD,
+            'HOMING_PIGEON': talib.CDLHOMINGPIGEON,
+            'IDENTICAL_3_CROWS': talib.CDLIDENTICAL3CROWS,
+            'IN_NECK': talib.CDLINNECK,
+            'INVERTED_HAMMER': talib.CDLINVERTEDHAMMER,
+            'KICKING': talib.CDLKICKING,
+            'KICKING_BY_LENGTH': talib.CDLKICKINGBYLENGTH,
+            'LADDER_BOTTOM': talib.CDLLADDERBOTTOM,
+            'LONG_LEGGED_DOJI': talib.CDLLONGLEGGEDDOJI,
+            'LONG_LINE': talib.CDLLONGLINE,
+            'MARUBOZU': talib.CDLMARUBOZU,
+            'MATCHING_LOW': talib.CDLMATCHINGLOW,
+            'MAT_HOLD': talib.CDLMATHOLD,
+            'MORNING_DOJI_STAR': talib.CDLMORNINGDOJISTAR,
+            'MORNING_STAR': talib.CDLMORNINGSTAR,
+            'ON_NECK': talib.CDLONNECK,
+            'PIERCING': talib.CDLPIERCING,
+            'RICKSHAW_MAN': talib.CDLRICKSHAWMAN,
+            'RISE_FALL_3_METHODS': talib.CDLRISEFALL3METHODS,
+            'SEPARATING_LINES': talib.CDLSEPARATINGLINES,
+            'SHOOTING_STAR': talib.CDLSHOOTINGSTAR,
+            'SHORT_LINE': talib.CDLSHORTLINE,
+            'SPINNING_TOP': talib.CDLSPINNINGTOP,
+            'STALLED_PATTERN': talib.CDLSTALLEDPATTERN,
+            'STICK_SANDWICH': talib.CDLSTICKSANDWICH,
+            'TAKURI': talib.CDLTAKURI,
+            'TASUKI_GAP': talib.CDLTASUKIGAP,
+            'THRUSTING': talib.CDLTHRUSTING,
+            'TRISTAR': talib.CDLTRISTAR,
+            'UNIQUE_3_RIVER': talib.CDLUNIQUE3RIVER,
+            'UPSIDE_GAP_2_CROWS': talib.CDLUPSIDEGAP2CROWS,
+            'X_SIDE_GAP_3_METHODS': talib.CDLXSIDEGAP3METHODS
         }
 
     def detect_patterns(self, df: pd.DataFrame) -> Dict[str, int]:
@@ -322,35 +381,94 @@ def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         df['SMA_50'] = df['Close'].rolling(window=50, min_periods=1).mean()
         df['Volume_MA'] = df['Volume'].rolling(window=20, min_periods=1).mean()
         
-        # Basic indicators
-        df['RSI'] = talib.RSI(df['Close'].values, timeperiod=14)
-        df['MACD'], df['MACD_Signal'], df['MACD_Hist'] = talib.MACD(
-            df['Close'].values, fastperiod=12, slowperiod=26, signalperiod=9
-        )
+        # Overlap Studies
+        df['BBANDS_Upper'], df['BBANDS_Middle'], df['BBANDS_Lower'] = talib.BBANDS(df['Close'], timeperiod=20)
+        df['DEMA'] = talib.DEMA(df['Close'], timeperiod=10)
+        df['EMA'] = talib.EMA(df['Close'], timeperiod=10)
+        df['HT_TRENDLINE'] = talib.HT_TRENDLINE(df['Close'])
+        df['KAMA'] = talib.KAMA(df['Close'], timeperiod=10)
+        df['MA'] = talib.MA(df['Close'], timeperiod=10)
+        df['MIDPOINT'] = talib.MIDPOINT(df['Close'], timeperiod=14)
+        df['MIDPRICE'] = talib.MIDPRICE(df['High'], df['Low'], timeperiod=14)
+        df['SAR'] = talib.SAR(df['High'], df['Low'], acceleration=0.02, maximum=0.2)
+        df['SAREXT'] = talib.SAREXT(df['High'], df['Low'])
+        df['T3'] = talib.T3(df['Close'], timeperiod=5)
+        df['TEMA'] = talib.TEMA(df['Close'], timeperiod=10)
+        df['TRIMA'] = talib.TRIMA(df['Close'], timeperiod=10)
+        df['WMA'] = talib.WMA(df['Close'], timeperiod=10)
         
-        # Volume indicators
-        df['OBV'] = talib.OBV(df['Close'].values, df['Volume'].values)
-        df['ADL'] = talib.AD(df['High'].values, df['Low'].values, 
-                            df['Close'].values, df['Volume'].values)
+        # Momentum Indicators
+        df['ADX'] = talib.ADX(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['ADXR'] = talib.ADXR(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['APO'] = talib.APO(df['Close'], fastperiod=12, slowperiod=26)
+        df['AROON_Down'], df['AROON_Up'] = talib.AROON(df['High'], df['Low'], timeperiod=14)
+        df['AROONOSC'] = talib.AROONOSC(df['High'], df['Low'], timeperiod=14)
+        df['BOP'] = talib.BOP(df['Open'], df['High'], df['Low'], df['Close'])
+        df['CCI'] = talib.CCI(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['CMO'] = talib.CMO(df['Close'], timeperiod=14)
+        df['DX'] = talib.DX(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['MACD'], df['MACD_Signal'], df['MACD_Hist'] = talib.MACD(df['Close'], fastperiod=12, slowperiod=26, signalperiod=9)
+        df['MFI'] = talib.MFI(df['High'], df['Low'], df['Close'], df['Volume'], timeperiod=14)
+        df['MINUS_DI'] = talib.MINUS_DI(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['MINUS_DM'] = talib.MINUS_DM(df['High'], df['Low'], timeperiod=14)
+        df['PLUS_DI'] = talib.PLUS_DI(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['PLUS_DM'] = talib.PLUS_DM(df['High'], df['Low'], timeperiod=14)
+        df['PPO'] = talib.PPO(df['Close'], fastperiod=12, slowperiod=26)
+        df['ROC'] = talib.ROC(df['Close'], timeperiod=10)
+        df['ROCP'] = talib.ROCP(df['Close'], timeperiod=10)
+        df['ROCR'] = talib.ROCR(df['Close'], timeperiod=10)
+        df['ROCR100'] = talib.ROCR100(df['Close'], timeperiod=10)
+        df['RSI'] = talib.RSI(df['Close'], timeperiod=14)
+        df['STOCH_K'], df['STOCH_D'] = talib.STOCH(df['High'], df['Low'], df['Close'])
+        # df['STOCHRSI'] = talib.STOCHRSI(df['Close'], timeperiod=14)
+        df['TRIX'] = talib.TRIX(df['Close'], timeperiod=14)
+        df['ULTOSC'] = talib.ULTOSC(df['High'], df['Low'], df['Close'], timeperiod1=7, timeperiod2=14, timeperiod3=28)
+        df['WILLR'] = talib.WILLR(df['High'], df['Low'], df['Close'], timeperiod=14)
         
-        # Volatility indicators
-        df['ATR'] = talib.ATR(df['High'].values, df['Low'].values, 
-                             df['Close'].values, timeperiod=14)
-        df['BBANDS_Upper'], df['BBANDS_Middle'], df['BBANDS_Lower'] = talib.BBANDS(
-            df['Close'].values, timeperiod=20
-        )
+        # Volume Indicators
+        df['OBV'] = talib.OBV(df['Close'], df['Volume'])
+        df['ADL'] = talib.AD(df['High'], df['Low'], df['Close'], df['Volume'])
+        df['ADOSC'] = talib.ADOSC(df['High'], df['Low'], df['Close'], df['Volume'], fastperiod=3, slowperiod=10)
         
-        # Momentum indicators
+        # Volatility Indicators
+        df['ATR'] = talib.ATR(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['NATR'] = talib.NATR(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['TRANGE'] = talib.TRANGE(df['High'], df['Low'], df['Close'])
+        
+        # Price Transform
+        df['AVGPRICE'] = talib.AVGPRICE(df['Open'], df['High'], df['Low'], df['Close'])
+        df['MEDPRICE'] = talib.MEDPRICE(df['High'], df['Low'])
+        df['TYPPRICE'] = talib.TYPPRICE(df['High'], df['Low'], df['Close'])
+        df['WCLPRICE'] = talib.WCLPRICE(df['High'], df['Low'], df['Close'])
+        
+        # Cycle Indicators
+        df['HT_DCPERIOD'] = talib.HT_DCPERIOD(df['Close'])
+        df['HT_DCPHASE'] = talib.HT_DCPHASE(df['Close'])
+        df['HT_PHASOR_InPhase'], df['HT_PHASOR_Quadrature'] = talib.HT_PHASOR(df['Close'])
+        df['HT_SINE_Sine'], df['HT_SINE_Lead'] = talib.HT_SINE(df['Close'])
+        df['HT_TRENDMODE'] = talib.HT_TRENDMODE(df['Close'])
+        
+        # Statistic Functions
+        df['BETA'] = talib.BETA(df['High'], df['Low'], timeperiod=5)
+        df['CORREL'] = talib.CORREL(df['High'], df['Low'], timeperiod=30)
+        df['LINEARREG'] = talib.LINEARREG(df['Close'], timeperiod=14)
+        df['LINEARREG_ANGLE'] = talib.LINEARREG_ANGLE(df['Close'], timeperiod=14)
+        df['LINEARREG_INTERCEPT'] = talib.LINEARREG_INTERCEPT(df['Close'], timeperiod=14)
+        df['LINEARREG_SLOPE'] = talib.LINEARREG_SLOPE(df['Close'], timeperiod=14)
+        df['STDDEV'] = talib.STDDEV(df['Close'], timeperiod=14, nbdev=1)
+        df['TSF'] = talib.TSF(df['Close'], timeperiod=14)
+        df['VAR'] = talib.VAR(df['Close'], timeperiod=14)
+
         df['MOM'] = talib.MOM(df['Close'].values, timeperiod=10)
-        df['ROC'] = talib.ROC(df['Close'].values, timeperiod=10)
         
         # Handle NaN values
         df = df.ffill().bfill()
         
         return df
     except Exception as e:
-        print(f"Error in calculate_technical_indicators: {str(e)}")
+        print(f"Error in calculate_technical_indicators at {e.__traceback__.tb_lineno}: {str(e)}")
         return df
+
 
 class RealTimeStore:
     def __init__(self):
@@ -376,7 +494,7 @@ class RealTimeStore:
 realtime_store = RealTimeStore()
 
 # Modify get_historical_data for 5-min candles
-def get_historical_data(symbol, interval='5minute', days=30):
+def get_historical_data(symbol, interval='5minute', days=60):
     try:
         kite = get_kite_instance()
         if not kite:
@@ -491,73 +609,77 @@ class EnhancedPredictor:
         self.pattern_detector = CandlePatternDetector()
         
     def get_prediction(self) -> Dict:
-        latest = self.df.iloc[-1]
-        patterns = self.pattern_detector.detect_patterns(self.df)
-        sentiment = analyze_market_sentiment(self.df)
-        
-        # Calculate probability based on multiple factors
-        bullish_factors = 0
-        bearish_factors = 0
-        
-        # Pattern analysis
-        for pattern, value in patterns.items():
-            if value > 0:
-                bullish_factors += 1
-            elif value < 0:
+        try:
+            latest = self.df.iloc[-1]
+            patterns = self.pattern_detector.detect_patterns(self.df)
+            sentiment = analyze_market_sentiment(self.df)
+            
+            # Calculate probability based on multiple factors
+            bullish_factors = 0
+            bearish_factors = 0
+            
+            # Pattern analysis
+            for pattern, value in patterns.items():
+                if value > 0:
+                    bullish_factors += 1
+                elif value < 0:
+                    bearish_factors += 1
+            
+            # Technical indicator analysis
+            if latest['RSI'] > 70:
                 bearish_factors += 1
-        
-        # Technical indicator analysis
-        if latest['RSI'] > 70:
-            bearish_factors += 1
-        elif latest['RSI'] < 30:
-            bullish_factors += 1
-            
-        if latest['MACD'] > latest['MACD_Signal']:
-            bullish_factors += 1
-        else:
-            bearish_factors += 1
-            
-        if latest['Close'] > latest['BBANDS_Upper']:
-            bearish_factors += 1
-        elif latest['Close'] < latest['BBANDS_Lower']:
-            bullish_factors += 1
-            
-        # Volume analysis
-        if sentiment['volume_trend'] == "High":
-            if latest['Close'] > latest['Open']:
+            elif latest['RSI'] < 30:
+                bullish_factors += 1
+                
+            if latest['MACD'] > latest['MACD_Signal']:
                 bullish_factors += 1
             else:
                 bearish_factors += 1
                 
-        # Calculate probability
-        total_factors = bullish_factors + bearish_factors
-        if total_factors == 0:
-            probability = 0.5
-        else:
-            probability = bullish_factors / total_factors
+            if latest['Close'] > latest['BBANDS_Upper']:
+                bearish_factors += 1
+            elif latest['Close'] < latest['BBANDS_Lower']:
+                bullish_factors += 1
+                
+            # Volume analysis
+            if sentiment['volume_trend'] == "High":
+                if latest['Close'] > latest['Open']:
+                    bullish_factors += 1
+                else:
+                    bearish_factors += 1
+                    
+            # Calculate probability
+            total_factors = bullish_factors + bearish_factors
+            if total_factors == 0:
+                probability = 0.5
+            else:
+                probability = bullish_factors / total_factors
+                
+            # Predict price movement
+            atr = latest['ATR']
+            current_price = latest['Close']
             
-        # Predict price movement
-        atr = latest['ATR']
-        current_price = latest['Close']
-        
-        predicted_movement = (probability - 0.5) * 2 * atr
-        predicted_price = current_price + predicted_movement
-        
-        return {
-            "current_price": float(current_price),
-            "predicted_price": float(predicted_price),
-            "probability": float(probability),
-            "confidence": "High" if abs(probability - 0.5) > 0.3 else "Medium" if abs(probability - 0.5) > 0.15 else "Low",
-            "patterns": {k: int(v) for k, v in patterns.items()},
-            "sentiment": {k: float(v) if isinstance(v, (np.int32, np.int64, np.float32, np.float64)) else v 
-                         for k, v in sentiment.items()},
-            "technical_signals": {
-                "rsi": float(latest['RSI']),
-                "macd": float(latest['MACD']),
-                "macd_signal": float(latest['MACD_Signal']),
-                "momentum": float(latest['MOM'])
+            predicted_movement = (probability - 0.5) * 2 * atr
+            predicted_price = current_price + predicted_movement
+            
+            return {
+                "current_price": float(current_price),
+                "predicted_price": float(predicted_price),
+                "probability": float(probability),
+                "confidence": "High" if abs(probability - 0.5) > 0.3 else "Medium" if abs(probability - 0.5) > 0.15 else "Low",
+                "patterns": {k: int(v) for k, v in patterns.items()},
+                "sentiment": {k: float(v) if isinstance(v, (np.int32, np.int64, np.float32, np.float64)) else v 
+                            for k, v in sentiment.items()},
+                "technical_signals": {
+                    "rsi": float(latest['RSI']),
+                    "macd": float(latest['MACD']),
+                    "macd_signal": float(latest['MACD_Signal']),
+                    "momentum": float(latest['MOM'])
+                }
             }
-        }
+        except Exception as e:
+            print(f"Error: {e}")
+            raise
 
 
 # Function to calculate indicators
@@ -588,31 +710,33 @@ def calculate_indicators(data):
         print(f"Error in calculate_indicators: {str(e)}")
         return data  # Return original data if calculation fails
 
-# Function to train the regression model
 def train_regression_model(data):
     try:
-        # Handle NaN values first
+        # Handle NaN values by forward and backward filling
         data = data.copy()
         data = data.ffill().bfill()
         
-        # Prepare features with proper column names
-        feature_columns = ['SMA_20', 'SMA_50', 'Volume_MA']
+        # Create the target column for next day's close
+        data['Next_Close'] = data['Close'].shift(-1)
         
-        # Ensure all feature columns exist
+        # Drop the last row as it has no target value
+        data = data.iloc[:-1]
+        
+        # Dynamically identify feature columns (exclude non-indicator columns and target columns)
+        feature_columns = [col for col in data.columns if col not in ['Open', 'High', 'Low', 'Close', 'Volume', 'Date', 'Next_Close']]
+        
+        # Ensure all feature columns exist and preprocess
         for col in feature_columns:
-            if col not in data.columns:
-                if 'SMA' in col:
-                    window = int(col.split('_')[1])
-                    data[col] = data['Close'].rolling(window=window, min_periods=1).mean()
-                else:
-                    data[col] = data['Volume'].rolling(window=20, min_periods=1).mean()
+            if col not in data.columns or data[col].isnull().all():
+                print(f"Warning: Missing or invalid column {col}. Filling with 0.")
+                data[col] = 0.0
         
         # Forward fill any remaining NaN values
         data = data.ffill().bfill()
         
         # Convert to numpy arrays and ensure float64 dtype
         X = data[feature_columns].values.astype(np.float64)
-        y = data['Close'].values.astype(np.float64)
+        y = data['Next_Close'].values.astype(np.float64)
         
         # Additional check for NaN values
         if np.isnan(X).any() or np.isnan(y).any():
@@ -631,6 +755,10 @@ def train_regression_model(data):
         X_train = X[-train_size:]
         y_train = y[-train_size:]
         
+        # Check if there's any data left for training
+        if len(X_train) == 0 or len(y_train) == 0:
+            raise ValueError("No valid data points left for training after preprocessing.")
+        
         # Create and fit the pipeline
         pipeline = make_pipeline(
             StandardScaler(),
@@ -642,40 +770,59 @@ def train_regression_model(data):
         
     except Exception as e:
         print(f"Error in train_regression_model: {str(e)}")
-        return make_pipeline(StandardScaler(), LinearRegression())
+        return make_pipeline(StandardScaler(), LinearRegression())  # Default fallback to Linear Regression # Default fallback to Linear Regression
 
 # Function to train the PyTorch model
 def train_pytorch_model(data):
-    model = StockPricePredictor()
-    
-    # Prepare features and target
-    feature_columns = ['SMA_20', 'SMA_50', 'Volume_MA']
-    X = data[feature_columns].values.astype(np.float32)
-    y = data['Close'].values.astype(np.float32)
-    
-    # Use last 80% of data for training
-    train_size = int(len(data) * 0.8)
-    X_train = X[-train_size:]
-    y_train = y[-train_size:]
-    
-    # Convert to tensors
-    X_tensor = torch.tensor(X_train)
-    y_tensor = torch.tensor(y_train)
-    
-    # Train the model
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    
-    model.train()
-    for epoch in range(100):
-        optimizer.zero_grad()
-        outputs = model(X_tensor)
-        loss = criterion(outputs.squeeze(), y_tensor)
-        loss.backward()
-        optimizer.step()
-    
-    model.eval()
-    return model
+    try:
+        # Create the target column for next day's close
+        data['Next_Close'] = data['Close'].shift(-1)
+        
+        # Drop the last row as it has no target value
+        data = data.iloc[:-1]
+        
+        # Dynamically identify feature columns (exclude non-indicator columns and target columns)
+        feature_columns = [col for col in data.columns if col not in ['Open', 'High', 'Low', 'Close', 'Volume', 'Date', 'Next_Close']]
+        
+        # Prepare features and target
+        X = data[feature_columns].values.astype(np.float32)
+        y = data['Next_Close'].values.astype(np.float32)
+        
+        # Use last 80% of data for training
+        train_size = int(len(data) * 0.8)
+        X_train = X[-train_size:]
+        y_train = y[-train_size:]
+        
+        # Instantiate the model with input size dynamically set based on feature count
+        model = StockPricePredictor(input_size=X_train.shape[1])
+        
+        # Convert to tensors
+        X_tensor = torch.tensor(X_train).float()  # Ensure float type for the model
+        y_tensor = torch.tensor(y_train).float()
+        
+        # Loss and optimizer
+        criterion = nn.MSELoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        
+        # Train the model
+        model.train()
+        for epoch in range(100):  # Number of epochs can be adjusted
+            optimizer.zero_grad()
+            outputs = model(X_tensor)
+            loss = criterion(outputs.squeeze(), y_tensor)
+            loss.backward()
+            optimizer.step()
+
+            # Print loss periodically (optional)
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch}, Loss: {loss.item()}")
+        
+        model.eval()  # Set model to evaluation mode
+        return model
+
+    except Exception as e:
+        print(f"Error in train_pytorch_model: {str(e)}")
+        return None
 
 # Function to generate signals and predictions
 def generate_signals(data, regression_model, pytorch_model):
@@ -724,10 +871,100 @@ def generate_signals(data, regression_model, pytorch_model):
         forecasted_prices = []
         forecast_dates = []
         current_features = np.array([
-            latest_data['SMA_20'],
-            latest_data['SMA_50'],
-            latest_data['Volume_MA']
+            # Price and volume-related features 
+            latest_data['SMA_20'], 
+            latest_data['SMA_50'], 
+            latest_data['Volume_MA'],
+
+            # Overlap Studies
+            latest_data['BBANDS_Upper'], 
+            latest_data['BBANDS_Middle'], 
+            latest_data['BBANDS_Lower'], 
+            latest_data['DEMA'], 
+            latest_data['EMA'], 
+            latest_data['HT_TRENDLINE'], 
+            latest_data['KAMA'], 
+            latest_data['MA'], 
+            latest_data['MIDPOINT'], 
+            latest_data['MIDPRICE'], 
+            latest_data['SAR'], 
+            latest_data['SAREXT'], 
+            latest_data['T3'], 
+            latest_data['TEMA'], 
+            latest_data['TRIMA'], 
+            latest_data['WMA'],
+
+            # Momentum Indicators
+            latest_data['ADX'], 
+            latest_data['ADXR'], 
+            latest_data['APO'], 
+            latest_data['AROON_Down'], 
+            latest_data['AROON_Up'], 
+            latest_data['AROONOSC'], 
+            latest_data['BOP'], 
+            latest_data['CCI'], 
+            latest_data['CMO'], 
+            latest_data['DX'], 
+            latest_data['MACD'], 
+            latest_data['MACD_Signal'], 
+            latest_data['MACD_Hist'], 
+            latest_data['MFI'], 
+            latest_data['MINUS_DI'], 
+            latest_data['MINUS_DM'], 
+            latest_data['PLUS_DI'], 
+            latest_data['PLUS_DM'], 
+            latest_data['PPO'], 
+            latest_data['ROC'], 
+            latest_data['ROCP'], 
+            latest_data['ROCR'], 
+            latest_data['ROCR100'], 
+            latest_data['RSI'], 
+            latest_data['STOCH_K'], 
+            latest_data['STOCH_D'], 
+            latest_data['TRIX'], 
+            latest_data['ULTOSC'], 
+            latest_data['WILLR'],
+
+            # Volume Indicators
+            latest_data['OBV'], 
+            latest_data['ADL'], 
+            latest_data['ADOSC'],
+
+            # Volatility Indicators
+            latest_data['ATR'], 
+            latest_data['NATR'], 
+            latest_data['TRANGE'],
+
+            # Price Transform
+            latest_data['AVGPRICE'], 
+            latest_data['MEDPRICE'], 
+            latest_data['TYPPRICE'], 
+            latest_data['WCLPRICE'],
+
+            # Cycle Indicators
+            latest_data['HT_DCPERIOD'], 
+            latest_data['HT_DCPHASE'], 
+            latest_data['HT_PHASOR_InPhase'], 
+            latest_data['HT_PHASOR_Quadrature'], 
+            latest_data['HT_SINE_Sine'], 
+            latest_data['HT_SINE_Lead'], 
+            latest_data['HT_TRENDMODE'],
+
+            # Statistic Functions
+            latest_data['BETA'], 
+            latest_data['CORREL'], 
+            latest_data['LINEARREG'], 
+            latest_data['LINEARREG_ANGLE'], 
+            latest_data['LINEARREG_INTERCEPT'], 
+            latest_data['LINEARREG_SLOPE'], 
+            latest_data['STDDEV'], 
+            latest_data['TSF'], 
+            latest_data['VAR'],
+
+            # Additional Momentum
+            latest_data['MOM']
         ]).reshape(1, -1)
+
         
         # Generate forecast for next 5 days
         for i in range(forecast_days):
@@ -817,7 +1054,7 @@ def generate_signals(data, regression_model, pytorch_model):
         return signals
         
     except Exception as e:
-        print(f"Error in generate_signals: {str(e)}")
+        print(f"Error in generate_signals {e.__traceback__.tb_lineno}: {str(e)}")
         return None
 
 # Add this function to continuously monitor signals
@@ -1276,6 +1513,9 @@ def generate_stock_analysis():
             stock_end_time = time.time()
             stock_elapsed_time = stock_end_time - stock_start_time
             print(f"Processed {symbol} in {stock_elapsed_time:.2f} seconds")
+
+            total_stock_elapsed_time = stock_end_time - start_time
+            print(f"Processing time: {total_stock_elapsed_time:.2f} seconds")
 
         df = pd.DataFrame(analysis_results)
         
