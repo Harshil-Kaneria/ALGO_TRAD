@@ -364,7 +364,6 @@ function App() {
 
   useEffect(() => {
     fetchProfileData();
-    fetchGainers();
   }, []);
 
   useEffect(() => {
@@ -445,7 +444,7 @@ function App() {
 
         {profileData ? (
           <div className="mb-6">
-            <div className="bg-gray-100 p-6 rounded-lg shadow-md mb-6">
+            {/* <div className="bg-gray-100 p-6 rounded-lg shadow-md mb-6">
               <div className="flex flex-col items-center mb-4">
                 <img
                   src={profileData.avatar_url}
@@ -462,7 +461,7 @@ function App() {
                   <strong>User ID:</strong> {profileData.user_id}
                 </p>
               </div>
-            </div>
+            </div> */}
 
             {isMarketOpen && (
               <>
@@ -742,6 +741,20 @@ function App() {
                   )}
                 </div>
 
+                <div className="mb-6">
+            <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
+            <div className="flex items-center mb-4 space-x-4">
+                    <h2 className="text-2xl font-bold flex-grow">
+                    Top Gainers
+                    </h2>
+                    <Button
+                      type="primary"
+                      onClick={fetchGainers}
+                      className="ml-2"
+                    >
+                      Fetch
+                    </Button>
+                  </div>
                 {gainers.length > 0 && (
                   <GainersTable
                     gainers={gainers}
@@ -750,6 +763,7 @@ function App() {
                     startScraping={startScraping}
                   />
                 )}
+                        </div>
 
                 {news.length > 0 && selectedGainer && (
                   <Card

@@ -101,9 +101,7 @@ const GainersTable = ({ gainers, isScrapingStarted, selectedGainer, startScrapin
     );
 
     return (
-        <div className="mb-6">
-            <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold mb-4">Top Gainers</h2>
+        
             <Table
                 dataSource={dataSource}
                 columns={columns}
@@ -114,7 +112,6 @@ const GainersTable = ({ gainers, isScrapingStarted, selectedGainer, startScrapin
                     rowExpandable: (record) => true,
                 }}
             />
-        </div>
     );
 };
 
