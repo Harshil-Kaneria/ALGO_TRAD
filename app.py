@@ -1,7 +1,7 @@
 import talib
 import time
 import argparse
-from flask import Flask, jsonify, request, redirect, render_template
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from kite_trade import KiteApp
 from kiteconnect import KiteTicker
@@ -9,10 +9,7 @@ import os
 from datetime import datetime, timedelta
 import yfinance as yf
 from bs4 import BeautifulSoup
-import requests
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
 from dotenv import load_dotenv
 from transformers import pipeline
 import requests
@@ -20,14 +17,10 @@ from bs4 import BeautifulSoup
 import numpy as np
 import torch
 import torch.nn as nn
-from flask import Flask, jsonify, request, redirect, render_template
-from flask_cors import CORS
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import LinearRegression
-from typing import List, Dict
-from scipy import stats
+from typing import Dict
 import re
 
 app = Flask(__name__)
