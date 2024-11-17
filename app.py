@@ -493,8 +493,24 @@ class RealTimeStore:
 # Create a global instance
 realtime_store = RealTimeStore()
 
-# Modify get_historical_data for 5-min candles
-def get_historical_data(symbol, interval='5minute', days=60):
+time_frame_mapping = {
+    '1': {'interval': 'minute', 'days': 60},
+    '3': {'interval': '3minute', 'days': 100},
+    '5': {'interval': '5minute', 'days': 100},
+    '10': {'interval': '10minute', 'days': 100},
+    '15': {'interval': '15minute', 'days': 200},
+    '30': {'interval': '30minute', 'days': 200},
+    '60': {'interval': '60minute', 'days': 400},
+    '1d': {'interval': 'day', 'days': 2000}
+}
+
+# Function to get interval and days dynamically based on time frame
+def get_time_frame_settings(time_frame):
+    time_settings = time_frame_mapping.get(time_frame, {'interval': 'day', 'days': 2000})
+    return time_settings['interval'], time_settings['days']
+
+# Modify get_historical_data
+def get_historical_data(symbol,exchange="NSE", interval='day', days=365):
     try:
         kite = get_kite_instance()
         if not kite:
@@ -503,7 +519,7 @@ def get_historical_data(symbol, interval='5minute', days=60):
         # Find instrument token
         instrument_token = None
         try:
-            instruments = kite.instruments("NSE")
+            instruments = kite.instruments(exchange)
             for instrument in instruments:
                 if instrument['tradingsymbol'] == symbol:
                     instrument_token = instrument['instrument_token']
@@ -1294,11 +1310,19 @@ def scrape_stock(symbol):
             'error': f"Error scraping stock {symbol}: {str(e)}"
         }), 400
 
-@app.route('/api/signals/<symbol>', methods=['GET'])
-def get_signals(symbol):
+@app.route('/api/signals', methods=['GET'])
+def get_signals():
     try:
+        exchange = request.args.get('exchange').upper()
+        symbol = request.args.get('symbol')
+        time = request.args.get('time')
+
+        interval, days = get_time_frame_settings(time)
+        print(f"Error in interval for {interval}")
+        print(f"Error in days for {days}")
+
         # Get historical data
-        data = get_historical_data(symbol)
+        data = get_historical_data(symbol,exchange,interval,days)
         if data.empty:
             return jsonify({'error': f'No historical data available for {symbol}'}), 404
             

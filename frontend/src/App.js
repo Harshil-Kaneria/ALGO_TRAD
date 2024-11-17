@@ -10,6 +10,7 @@ function App() {
   const [stockName, setStockName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [exchange, setExchange] = useState('NSE');
+  const [timeInterval, setTimeInterval] = useState('1d');
   const [profitPercentage, setProfitPercentage] = useState(0.75);
   const [checkPivot, setCheckPivot] = useState(true);
   const [instruments, setInstruments] = useState([]);
@@ -198,21 +199,11 @@ function App() {
     }
   };
 
-  // Fetch instruments based on selected exchange
-  const fetchInstruments = async () => {
-    try {
-      const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/instruments?exchange=${exchange}`);
-      setInstruments(response.data);
-    } catch (error) {
-      console.error('Error fetching instruments:', error);
-    }
-  };
-
-  const handleSearchInput = (value) => {
-    if (!value) {
-      setSearchOptions([]);
-      return;
-    }
+    const handleSearchInput = (value) => {
+    // if (!value) {
+    //   setSearchOptions([]);
+    //   return;
+    // }
 
     const filtered = instruments.filter(instrument =>
       instrument.tradingsymbol.toLowerCase().includes(value.toLowerCase()) ||
@@ -226,6 +217,20 @@ function App() {
 
     setSearchOptions(options);
   };
+
+  // Fetch instruments based on selected exchange
+  const fetchInstruments = async () => {
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/instruments?exchange=${exchange}`);
+      setInstruments(response.data);
+      setSearchSymbol('')
+      handleSearchInput('')
+    } catch (error) {
+      console.error('Error fetching instruments:', error);
+    }
+  };
+
+
 
   // Place order function
   const placeOrder = async () => {
@@ -292,7 +297,7 @@ function App() {
   const handleAnalysisSearch = async () => {
     try {
       setSignals(null);
-      const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/signals/${searchSymbol}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/signals?exchange=${exchange}&symbol=${searchSymbol}&time=${timeInterval}`);
       if (response.data) {
         console.log('Initial signals:', response.data);
         setSignals(response.data);
@@ -519,33 +524,68 @@ function App() {
 
 
                 <div className="mb-6">
-                  <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-                  <div className="flex items-center mb-4">
-                    <h2 className="text-2xl font-bold flex-grow">Search Stock</h2>
-                    <Button
-                      type="primary"
-                      onClick={handleSearch}
-                      className="ml-2"
-                    >
-                      Search
-                    </Button>
-                  </div>
-                  <div className="flex items-center mb-4">
-                    <Select
-                      showSearch
-                      value={searchSymbol}
-                      placeholder="Search for a stock"
-                      defaultActiveFirstOption={false}
-                      showArrow={false}
-                      filterOption={false}
-                      onSearch={handleSearchInput}
-                      onChange={(value) => setSearchSymbol(value)}
-                      notFoundContent={null}
-                      options={searchOptions}
-                      style={{ width: '100%' }}
-                      className="flex-grow"
-                    />
-                  </div>
+                <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
+<div className="flex items-center mb-4 space-x-4">
+  <h2 className="text-2xl font-bold flex-grow">Search Stock</h2>
+  <Button
+    type="primary"
+    onClick={handleSearch}
+    className="ml-2"
+  >
+    Search
+  </Button>
+</div>
+
+<div className="flex items-center mb-4 space-x-4">
+  {/* Exchange Dropdown */}
+  <Select
+    value={exchange}
+    onChange={(value) => setExchange(value)}
+    options={[
+      { label: 'NSE', value: 'NSE' },
+      { label: 'BSE', value: 'BSE' },
+      // Add more exchange options here if needed
+    ]}
+    style={{ width: '200px' }}
+    placeholder="Select Exchange"
+    className="flex-grow"
+  />
+
+  {/* Time Interval Dropdown */}
+  <Select
+    value={timeInterval}
+    onChange={(value) => setTimeInterval(value)}
+    options={[
+      { label: '1 Minute', value: '1' },
+      { label: '3 Minutes', value: '3' },
+      { label: '5 Minutes', value: '5' },
+      { label: '10 Minutes', value: '10' },
+      { label: '15 Minutes', value: '15' },
+      { label: '30 Minutes', value: '30' },
+      { label: '1 Hour', value: '60' },
+      { label: '1 Day', value: '1d' },
+    ]}
+    style={{ width: '200px' }}
+    placeholder="Select Time Interval"
+    className="flex-grow"
+  />
+
+  {/* Stock Search Dropdown */}
+  <Select
+    showSearch
+    value={searchSymbol}
+    placeholder="Search for a stock"
+    defaultActiveFirstOption={false}
+    showArrow={false}
+    filterOption={false}
+    onSearch={handleSearchInput}
+    onChange={(value) => setSearchSymbol(value)}
+    notFoundContent={null}
+    options={searchOptions}
+    style={{ width: '200px' }}
+    className="flex-grow"
+  />
+</div>
                   {searchResult && (
                     <Card className="mb-4" title={`${searchResult.company} (${searchResult.symbol})`}>
                       <p><strong>Price:</strong> {searchResult.price}</p>
