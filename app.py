@@ -1145,10 +1145,20 @@ def get_gainers_api():
     gainers = get_top_gainers()
     return jsonify(gainers)
 
-def get_stock_details(symbol):
+def get_stock_details(symbol,exchange):
     try:
         # For Indian stocks, we need to append ".NS" for NSE listings
-        ticker = yf.Ticker(f"{symbol}.NS")
+        
+        if exchange.upper() == "NSE":
+            ticker_symbol = f"{symbol}.NS"
+        elif exchange.upper() == "BSE":
+            ticker_symbol = f"{symbol}.BO"
+        else:
+            raise ValueError("Unsupported exchange. Please use 'NSE' or 'BSE'.")
+        
+        # Fetch stock details
+        ticker = yf.Ticker(ticker_symbol)
+
         info = ticker.info
         
         if not info:
@@ -1156,7 +1166,7 @@ def get_stock_details(symbol):
         
         # Get historical data for pivot point calculation
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=2)
+        start_date = end_date - timedelta(days=5)
         hist = ticker.history(start=start_date, end=end_date)
         
         if len(hist) < 2:
@@ -1182,7 +1192,6 @@ def get_stock_details(symbol):
             'symbol': symbol,
             'company': info.get('longName', 'N/A'),
             'price': current_price,
-            'change': f"{info.get('regularMarketChangePercent', 0):.2f}%",
             'pivot_points': pivot_points,
             'position': position
         }
@@ -1193,10 +1202,12 @@ def get_stock_details(symbol):
         print(f"Unexpected error in get_stock_details for {symbol}: {str(e)}")
         return None
 
-@app.route('/api/search/<symbol>')
-def search_stock(symbol):
+@app.route('/api/search',methods=['GET'])
+def search_stock():
     try:
-        stock_info = get_stock_details(symbol)
+        symbol = request.args.get('symbol')
+        exchange = request.args.get('exchange')
+        stock_info = get_stock_details(symbol,exchange)
         if not stock_info:
             return jsonify({'error': f"Unable to fetch details for {symbol}. Please ensure the symbol is correct and try again."}), 404
         
@@ -1234,8 +1245,6 @@ def get_signals():
         time = request.args.get('time')
 
         interval, days = get_time_frame_settings(time)
-        print(f"Error in interval for {interval}")
-        print(f"Error in days for {days}")
 
         # Get historical data
         data = get_historical_data(symbol,exchange,interval,days)
