@@ -779,8 +779,8 @@ def train_pytorch_model(data):
             optimizer.step()
 
             # Print loss periodically (optional)
-            if epoch % 10 == 0:
-                print(f"Epoch {epoch}, Loss: {loss.item()}")
+            # if epoch % 10 == 0:
+                # print(f"Epoch {epoch}, Loss: {loss.item()}")
         
         model.eval()  # Set model to evaluation mode
         return model
@@ -1325,7 +1325,7 @@ def get_top_nse_symbols(allData=False):
         print(f"Error getting symbols: {str(e)}")
         return []
 
-def generate_stock_analysis():
+def generate_stock_analysis(allData=False):
     try:
         print("Starting stock analysis...")
         start_time = time.time()
@@ -1335,7 +1335,7 @@ def generate_stock_analysis():
             raise ValueError("KiteApp instance not initialized")
             
         instruments = kite.instruments("NSE")
-        top_symbols = get_top_nse_symbols()
+        top_symbols = get_top_nse_symbols(allData=allData)
         
         filtered_instruments = [
             instrument for instrument in instruments 
@@ -1593,13 +1593,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Stock Analysis and Trading Application')
     parser.add_argument('--generate', type=str, choices=['true', 'false'], 
                        help='Generate stock analysis report if true')
+    parser.add_argument('--full', type=str, choices=['true', 'false'], 
+                        default='false', help='Fetch all symbols if true')
     
     args = parser.parse_args()
     
     # Check if generate flag is set to true
     if args.generate and args.generate.lower() == 'true':
-        print("Generating stock analysis report...")
-        generate_stock_analysis()
+        all_data = args.full.lower() == 'true'
+        print(f"Generating stock analysis report with full data: {all_data}")
+        generate_stock_analysis(allData=all_data)
     else:
        print("Starting backend server...")
        app.run(debug=True, host='0.0.0.0', port=5000)
