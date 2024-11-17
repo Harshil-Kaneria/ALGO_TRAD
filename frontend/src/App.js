@@ -1,5 +1,4 @@
-import io from 'socket.io-client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import GainersTable from './GainersTable';
 import { Card, Tag, Button, List, Typography, notification, Select } from 'antd';
@@ -26,56 +25,7 @@ function App() {
   const [searchResult, setSearchResult] = useState(null);
   const [isSearchScrapingStarted, setIsSearchScrapingStarted] = useState(false);
   const [searchOptions, setSearchOptions] = useState([]);
-
-  const [socket, setSocket] = useState(null);
   const [signals, setSignals] = useState(null);
-
-  // Add this function to handle signal updates
-  const handleSignalUpdate = useCallback((data) => {
-    if (data.symbol === searchSymbol) {
-      console.log('data.signals', data.signals);
-      setSignals(data.signals);
-
-      // Update UI based on signals
-      if (data.signals.buy_signal) {
-        notification.success({
-          message: 'Buy Signal',
-          description: `Buy signal detected for ${data.symbol} at ${data.signals.entry_price}`,
-          placement: 'topRight', // You can adjust the placement
-        });
-      }
-
-      if (data.signals.sell_signal) {
-        notification.error({
-          message: 'Sell Signal',
-          description: `Sell signal detected for ${data.symbol} at ${data.signals.entry_price}`,
-          placement: 'topRight', // You can adjust the placement
-        });
-      }
-
-    }
-  }, [searchSymbol]);
-
-  // Add WebSocket connection effect
-  useEffect(() => {
-    const newSocket = io(process.env.REACT_APP_API_BASE_URL);
-
-    newSocket.on('connect', () => {
-      console.log('Connected to WebSocket');
-    });
-
-    newSocket.on('signal_update', handleSignalUpdate);
-
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from WebSocket');
-    });
-
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.close();
-    };
-  }, [handleSignalUpdate]);
 
   const renderSignals = () => {
     if (!signals) return null;
@@ -310,60 +260,6 @@ function App() {
       });
     }
   };
-
-  // Update the WebSocket connection effect
-  useEffect(() => {
-    const newSocket = io(process.env.REACT_APP_API_BASE_URL, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5
-    });
-
-    newSocket.on('connect', () => {
-      console.log('Connected to WebSocket');
-    });
-
-    newSocket.on('signal_update', (data) => {
-      console.log('Received signal update:', data);
-      if (data.symbol === searchSymbol) {
-        console.log('Updating signals for', searchSymbol);
-        setSignals(data.signals);
-
-        // Notifications for signals
-        if (data.signals.buy_signal) {
-          notification.success({
-            message: 'Buy Signal',
-            description: `Buy signal detected for ${data.symbol} at ${data.signals.entry_price}`,
-            placement: 'topRight',
-          });
-        }
-
-        if (data.signals.sell_signal) {
-          notification.error({
-            message: 'Sell Signal',
-            description: `Sell signal detected for ${data.symbol} at ${data.signals.entry_price}`,
-            placement: 'topRight',
-          });
-        }
-      }
-    });
-
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from WebSocket');
-    });
-
-    newSocket.on('error', (error) => {
-      console.error('WebSocket error:', error);
-    });
-
-    setSocket(newSocket);
-
-    return () => {
-      if (newSocket) {
-        newSocket.close();
-      }
-    };
-  }, [searchSymbol]);
 
   const handleSearch = async () => {
     handleAnalysisSearch()

@@ -1,6 +1,3 @@
-import eventlet
-# eventlet.monkey_patch()
-
 import talib
 import time
 import argparse
@@ -25,8 +22,6 @@ import torch
 import torch.nn as nn
 from flask import Flask, jsonify, request, redirect, render_template
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit
-import threading
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
@@ -35,10 +30,8 @@ from typing import List, Dict
 from scipy import stats
 import re
 
-
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
 
 load_dotenv()
 
@@ -470,29 +463,6 @@ def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
 
-class RealTimeStore:
-    def __init__(self):
-        self._data = {}
-        self._callbacks = {}
-
-    def update_data(self, symbol: str, data: dict):
-        self._data[symbol] = data
-        # Trigger callbacks if any
-        if symbol in self._callbacks:
-            for callback in self._callbacks[symbol]:
-                callback(data)
-
-    def get_data(self, symbol: str) -> dict:
-        return self._data.get(symbol)
-
-    def add_callback(self, symbol: str, callback):
-        if symbol not in self._callbacks:
-            self._callbacks[symbol] = []
-        self._callbacks[symbol].append(callback)
-
-# Create a global instance
-realtime_store = RealTimeStore()
-
 time_frame_mapping = {
     '1': {'interval': 'minute', 'days': 60},
     '3': {'interval': '3minute', 'days': 100},
@@ -568,19 +538,6 @@ def get_historical_data(symbol,exchange="NSE", interval='day', days=365):
             'close': 'Close',
             'volume': 'Volume'
         })
-        
-        # Add real-time data if available
-        realtime_data = realtime_store.get_data(symbol)
-        if realtime_data:
-            # Ensure realtime data has matching column names
-            realtime_df = pd.DataFrame([{
-                'Open': realtime_data.get('open', realtime_data.get('Open')),
-                'High': realtime_data.get('high', realtime_data.get('High')),
-                'Low': realtime_data.get('low', realtime_data.get('Low')),
-                'Close': realtime_data.get('close', realtime_data.get('Close')),
-                'Volume': realtime_data.get('volume', realtime_data.get('Volume'))
-            }])
-            df = pd.concat([df, realtime_df])
         
         # Calculate technical indicators
         df = calculate_technical_indicators(df)
@@ -696,7 +653,6 @@ class EnhancedPredictor:
         except Exception as e:
             print(f"Error: {e}")
             raise
-
 
 # Function to calculate indicators
 def calculate_indicators(data):
@@ -1073,39 +1029,6 @@ def generate_signals(data, regression_model, pytorch_model):
         print(f"Error in generate_signals {e.__traceback__.tb_lineno}: {str(e)}")
         return None
 
-# Add this function to continuously monitor signals
-def monitor_signals(symbol):
-    def on_tick_update(tick_data):
-        try:
-            # Get 15-minute candle data
-            data = get_historical_data(symbol)
-            if len(data) == 0:
-                return
-                
-            # Generate predictions
-            predictor = EnhancedPredictor(data)
-            prediction = predictor.get_prediction()
-            
-            # Generate trading signals
-            signals = {
-                "buy_signal": int(prediction['probability'] > 0.7 and prediction['confidence'] == "High"),
-                "sell_signal": int(prediction['probability'] < 0.3 and prediction['confidence'] == "High"),
-                "prediction": prediction,
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            # Emit the signals through WebSocket
-            socketio.emit('signal_update', {
-                'symbol': symbol,
-                'signals': signals
-            })
-            
-        except Exception as e:
-            print(f"Error monitoring signals for {symbol}: {str(e)}")
-
-    # Register callback for real-time updates
-    realtime_store.add_callback(symbol, on_tick_update)
-
 @app.route('/api/profile', methods=['GET'])
 def profile():
     kite = get_kite_instance()
@@ -1342,12 +1265,6 @@ def get_signals():
         # Convert numpy values to native types
         signals = convert_to_native_types(signals)
         
-        # Emit through WebSocket
-        socketio.emit('signal_update', {
-            'symbol': symbol,
-            'signals': signals
-        })
-        
         return jsonify(signals)
         
     except Exception as e:
@@ -1356,14 +1273,6 @@ def get_signals():
             'error': str(e),
             'details': 'Error occurred while processing signal data'
         }), 500
-
-@socketio.on('connect')
-def handle_connect():
-    print('Client connected')
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    print('Client disconnected')
 
 def get_top_nse_symbols(allData=False):
     try:
@@ -1677,7 +1586,6 @@ def generate_stock_analysis():
         print(f"Error generating stock analysis: {str(e)}")
         return None
 
-
 if __name__ == '__main__':
     # Create argument parser
     parser = argparse.ArgumentParser(description='Stock Analysis and Trading Application')
@@ -1691,6 +1599,5 @@ if __name__ == '__main__':
         print("Generating stock analysis report...")
         generate_stock_analysis()
     else:
-        # Run the socket server
-        print("Starting socket server...")
-        socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+       print("Starting backend server...")
+       app.run(debug=True, host='0.0.0.0', port=5000)
