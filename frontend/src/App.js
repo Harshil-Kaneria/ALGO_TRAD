@@ -588,6 +588,7 @@ function App() {
                       onClick={handleSearch}
                       className="ml-2"
                       ghost
+                      disabled={!exchange || !searchSymbol || !timeInterval || !days}
                     >
                       Search
                     </Button>
@@ -689,7 +690,7 @@ function App() {
                     }}
                     step={1} // Ensures precise control over day selection
                   /> */}
-                  
+
                   {searchResult && (
                     <Card
                       className="mb-4"
