@@ -6,7 +6,7 @@ from flask_cors import CORS
 from kite_trade import KiteApp
 from kiteconnect import KiteTicker
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,date
 import yfinance as yf
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -779,7 +779,7 @@ def train_pytorch_model(data):
             optimizer.step()
 
             # Print loss periodically (optional)
-            # if epoch % 10 == 0:
+            #   if epoch % 10 == 0:
                 # print(f"Epoch {epoch}, Loss: {loss.item()}")
         
         model.eval()  # Set model to evaluation mode
@@ -1165,7 +1165,7 @@ def get_stock_details(symbol,exchange):
             raise ValueError(f"No information found for symbol {symbol}")
         
         # Get historical data for pivot point calculation
-        end_date = datetime.now()
+        end_date = date.today() + timedelta(days=1)
         start_date = end_date - timedelta(days=5)
         hist = ticker.history(start=start_date, end=end_date)
         
@@ -1193,7 +1193,11 @@ def get_stock_details(symbol,exchange):
             'company': info.get('longName', 'N/A'),
             'price': current_price,
             'pivot_points': pivot_points,
-            'position': position
+            'position': position,
+            'open': round(hist.iloc[-1]['Open'], 2),
+            'high': round(hist.iloc[-1]['High'], 2),
+            'low': round(hist.iloc[-1]['Low'], 2),
+            'close': round(hist.iloc[-2]['Close'], 2)
         }
     except ValueError as ve:
         print(f"ValueError in get_stock_details for {symbol}: {str(ve)}")

@@ -9,6 +9,7 @@ import {
   Typography,
   notification,
   Select,
+  Slider,
 } from "antd";
 
 function App() {
@@ -633,22 +634,80 @@ function App() {
                       className="mb-4"
                       title={`${searchResult.company} (${searchResult.symbol})`}
                       extra={
-<div className="flex justify-center">
-                        <Button
-                          onClick={startSearchScraping}
-                          disabled={isSearchScrapingStarted}
-                          type="primary"
-                          loading={isSearchScrapingStarted}
-                        >
-                          {isSearchScrapingStarted
-                            ? "Scraping..."
-                            : "Start Scraping"}
-                        </Button>
-                      </div>
+                        <div className="flex justify-center">
+                          <Button
+                            onClick={startSearchScraping}
+                            disabled={isSearchScrapingStarted}
+                            type="primary"
+                            loading={isSearchScrapingStarted}
+                          >
+                            {isSearchScrapingStarted
+                              ? "Scraping..."
+                              : "Start Scraping"}
+                          </Button>
+                        </div>
                       }
                     >
-                      <p className="mb-2">
-                        <strong>Price:</strong> {searchResult.price}
+                      <p className="mb-2 flex justify-between">
+                        <span>
+                          <strong>Price:</strong> {searchResult.price}
+                        </span>
+                        <span>
+                          <strong>Open:</strong> {searchResult.open}
+                        </span>
+                        <span>
+                          <strong>High:</strong> {searchResult.high}
+                        </span>
+                        <span>
+                          <strong>Low:</strong> {searchResult.low}
+                        </span>
+                        <span>
+                          <strong>Prev. close:</strong> {searchResult.close}
+                        </span>
+                      </p>
+                      <p className="pl-3 pr-3">
+                        <Slider
+                          min={searchResult.low} // Lowest value on the slider
+                          max={searchResult.high} // Highest value on the slider
+                          value={searchResult.price} // Current price position on the slider
+                          marks={{
+                            [searchResult.low]: {
+                              style: { color: "#00aaff" },
+                              label: `Low: ${searchResult.low}`,
+                            },
+                            [searchResult.open]: {
+                              style: { color: "#ffaa00" },
+                              label: `Open: ${searchResult.open}`,
+                            },
+                            [searchResult.price]: {
+                              style: { color: "#00cc44" },
+                              label: `Price: ${searchResult.price}`,
+                            },
+                            [searchResult.high]: {
+                              style: { color: "#ff3333" },
+                              label: `High: ${searchResult.high}`,
+                            },
+                          }}
+                          tooltip={{ formatter: null }} // Disables tooltip for interactivity
+                          disabled // Makes the slider read-only
+                          trackStyle={{
+                            background:
+                              "linear-gradient(90deg, #00aaff, #00cc44)", // Gradient track
+                            height: "8px",
+                          }}
+                          railStyle={{
+                            background: "#f0f0f0", // Light gray rail background
+                            height: "8px",
+                          }}
+                          handleStyle={{
+                            borderColor: "#00cc44", // Color of the handle
+                            height: "16px",
+                            width: "16px",
+                            marginTop: "-4px",
+                            backgroundColor: "#ffffff",
+                            cursor: "default", // Removes hover cross sign
+                          }}
+                        />
                       </p>
                       <div className="flex flex-wrap">
                         <p>
@@ -742,10 +801,10 @@ function App() {
                 </div>
 
                 <div className="mb-6">
-            <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-            <div className="flex items-center mb-4 space-x-4">
+                  <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
+                  <div className="flex items-center mb-4 space-x-4">
                     <h2 className="text-2xl font-bold flex-grow">
-                    Top Gainers
+                      Top Gainers
                     </h2>
                     <Button
                       type="primary"
@@ -755,15 +814,15 @@ function App() {
                       Fetch
                     </Button>
                   </div>
-                {gainers.length > 0 && (
-                  <GainersTable
-                    gainers={gainers}
-                    isScrapingStarted={isScrapingStarted}
-                    selectedGainer={selectedGainer}
-                    startScraping={startScraping}
-                  />
-                )}
-                        </div>
+                  {gainers.length > 0 && (
+                    <GainersTable
+                      gainers={gainers}
+                      isScrapingStarted={isScrapingStarted}
+                      selectedGainer={selectedGainer}
+                      startScraping={startScraping}
+                    />
+                  )}
+                </div>
 
                 {news.length > 0 && selectedGainer && (
                   <Card
