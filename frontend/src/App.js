@@ -710,7 +710,7 @@ function App() {
                         </div>
                       }
                     >
-                      <p className="mb-2 flex justify-between">
+                      <p className="mb-2 flex justify-evenly">
                         <span>
                           <strong>Price:</strong> {searchResult.price}
                         </span>
@@ -731,6 +731,7 @@ function App() {
                           {searchResult.change_percentage}
                         </span>
                       </p>
+                      <br/>
                       <p className="pl-3 pr-3">
                         <Slider
                           min={searchResult.low} // Lowest value on the slider
@@ -775,43 +776,30 @@ function App() {
                           }}
                         />
                       </p>
-                      <div className="flex flex-wrap">
-                        <p>
-                          <strong>Position:</strong>{" "}
-                          <Tag color="blue">{searchResult.position}</Tag>
-                        </p>
+                      <br/>
+                      <div className="flex justify-center">
+                        <Tag color="blue">Position: {searchResult.position}</Tag>
                         <Tag color="blue">
                           PP: {searchResult.pivot_points.pp}
                         </Tag>
-                        <br />
-                      </div>
-                      <div className="flex flex-wrap">
                         <Tag color="red">
                           R1: {searchResult.pivot_points.r1}
                         </Tag>
-                        <br />
                         <Tag color="red">
                           R2: {searchResult.pivot_points.r2}
                         </Tag>
-                        <br />
                         <Tag color="red">
                           R3: {searchResult.pivot_points.r3}
                         </Tag>
-                        <br />
-                      </div>
-                      <div className="flex flex-wrap">
                         <Tag color="green">
                           S1: {searchResult.pivot_points.s1}
                         </Tag>
-                        <br />
                         <Tag color="green">
                           S2: {searchResult.pivot_points.s2}
                         </Tag>
-                        <br />
                         <Tag color="green">
                           S3: {searchResult.pivot_points.s3}
                         </Tag>
-                        <br />
                       </div>
                     </Card>
                   )}

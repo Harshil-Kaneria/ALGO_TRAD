@@ -187,9 +187,9 @@ def calculate_advanced_pivot(previous_high, previous_low, previous_close):
         r3 = previous_high + 2 * (pp - previous_low)
         
         return {
-            'pp': float(pp),
-            'r1': float(r1), 'r2': float(r2), 'r3': float(r3),
-            's1': float(s1), 's2': float(s2), 's3': float(s3)
+            'pp': round(float(pp),2),
+            'r1': round(float(r1),2), 'r2': round(float(r2),2), 'r3': round(float(r3),2),
+            's1': round(float(s1),2), 's2': round(float(s2),2), 's3': round(float(s3),2)
         }
     except Exception as e:
         print(f"Error calculating pivot points: {e}")
