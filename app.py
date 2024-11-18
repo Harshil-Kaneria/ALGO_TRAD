@@ -1188,6 +1188,8 @@ def get_stock_details(symbol,exchange):
         if current_price > pivot_points['r3']:
             position = "Above R3"
         
+        change_percentage = ((current_price - hist.iloc[-2]['Close']) / hist.iloc[-2]['Close']) * 100
+
         return {
             'symbol': symbol,
             'company': info.get('longName', 'N/A'),
@@ -1197,7 +1199,8 @@ def get_stock_details(symbol,exchange):
             'open': round(hist.iloc[-1]['Open'], 2),
             'high': round(hist.iloc[-1]['High'], 2),
             'low': round(hist.iloc[-1]['Low'], 2),
-            'close': round(hist.iloc[-2]['Close'], 2)
+            'close': round(hist.iloc[-2]['Close'], 2),
+            'change_percentage': f"{'+' if change_percentage > 0 else ''}{round(change_percentage, 2)}%"
         }
     except ValueError as ve:
         print(f"ValueError in get_stock_details for {symbol}: {str(ve)}")
@@ -1247,11 +1250,21 @@ def get_signals():
         exchange = request.args.get('exchange').upper()
         symbol = request.args.get('symbol')
         time = request.args.get('time')
+        
+        # userdays = request.args.get('days')
+        # try:
+        #     userdays = int(userdays) if userdays and userdays.isdigit() else None
+        # except ValueError:
+        #     userdays = None
 
-        interval, days = get_time_frame_settings(time)
+        interval,days = get_time_frame_settings(time)
+
+        # effective_days = userdays if userdays is not None else days
+        effective_days=days
+
 
         # Get historical data
-        data = get_historical_data(symbol,exchange,interval,days)
+        data = get_historical_data(symbol,exchange,interval,effective_days)
         if data.empty:
             return jsonify({'error': f'No historical data available for {symbol}'}), 404
             

@@ -35,6 +35,19 @@ function App() {
   const [isSearchScrapingStarted, setIsSearchScrapingStarted] = useState(false);
   const [searchOptions, setSearchOptions] = useState([]);
   const [signals, setSignals] = useState(null);
+  const [days, setDays] = React.useState(2000);
+  const [maxDays, setMaxDays] = React.useState(2000);
+
+  const time_frame_mapping = {
+    1: { interval: "minute", days: 60 },
+    3: { interval: "3minute", days: 100 },
+    5: { interval: "5minute", days: 100 },
+    10: { interval: "10minute", days: 100 },
+    15: { interval: "15minute", days: 200 },
+    30: { interval: "30minute", days: 200 },
+    60: { interval: "60minute", days: 400 },
+    "1d": { interval: "day", days: 2000 },
+  };
 
   const renderSignals = () => {
     if (!signals) return null;
@@ -379,7 +392,7 @@ function App() {
     try {
       setSignals(null);
       const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/signals?exchange=${exchange}&symbol=${searchSymbol}&time=${timeInterval}`
+        `${process.env.REACT_APP_API_BASE_URL}/api/signals?exchange=${exchange}&symbol=${searchSymbol}&time=${timeInterval}&days=${days}`
       );
       if (response.data) {
         console.log("Initial signals:", response.data);
@@ -574,6 +587,7 @@ function App() {
                       type="primary"
                       onClick={handleSearch}
                       className="ml-2"
+                      ghost
                     >
                       Search
                     </Button>
@@ -581,54 +595,101 @@ function App() {
 
                   <div className="flex items-center mb-4 space-x-4">
                     {/* Exchange Dropdown */}
-                    <Select
-                      value={exchange}
-                      onChange={(value) => setExchange(value)}
-                      options={[
-                        { label: "NSE", value: "NSE" },
-                        { label: "BSE", value: "BSE" },
-                        // Add more exchange options here if needed
-                      ]}
-                      style={{ width: "200px" }}
-                      placeholder="Select Exchange"
-                      className="flex-grow"
-                    />
+                    <div className="flex-1">
+                      <label
+                        htmlFor="exchangeDropdown"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Exchange
+                      </label>
+                      <Select
+                        id="exchangeDropdown"
+                        value={exchange}
+                        onChange={(value) => setExchange(value)}
+                        options={[
+                          { label: "NSE", value: "NSE" },
+                          { label: "BSE", value: "BSE" },
+                          // Add more exchange options here if needed
+                        ]}
+                        placeholder="Select Exchange"
+                        className="w-full"
+                      />
+                    </div>
 
                     {/* Time Interval Dropdown */}
-                    <Select
-                      value={timeInterval}
-                      onChange={(value) => setTimeInterval(value)}
-                      options={[
-                        { label: "1 Minute", value: "1" },
-                        { label: "3 Minutes", value: "3" },
-                        { label: "5 Minutes", value: "5" },
-                        { label: "10 Minutes", value: "10" },
-                        { label: "15 Minutes", value: "15" },
-                        { label: "30 Minutes", value: "30" },
-                        { label: "1 Hour", value: "60" },
-                        { label: "1 Day", value: "1d" },
-                      ]}
-                      style={{ width: "200px" }}
-                      placeholder="Select Time Interval"
-                      className="flex-grow"
-                    />
+                    <div className="flex-1">
+                      <label
+                        htmlFor="timeIntervalDropdown"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Time Interval
+                      </label>
+                      <Select
+                        id="timeIntervalDropdown"
+                        value={timeInterval}
+                        onChange={(value) => {
+                          setTimeInterval(value);
+                          const maxDays = time_frame_mapping[value]?.days || 5;
+                          setDays(maxDays);
+                          setMaxDays(maxDays);
+                        }}
+                        options={[
+                          { label: "1 Minute", value: "1" },
+                          { label: "3 Minutes", value: "3" },
+                          { label: "5 Minutes", value: "5" },
+                          { label: "10 Minutes", value: "10" },
+                          { label: "15 Minutes", value: "15" },
+                          { label: "30 Minutes", value: "30" },
+                          { label: "1 Hour", value: "60" },
+                          { label: "1 Day", value: "1d" },
+                        ]}
+                        placeholder="Select Time Interval"
+                        className="w-full"
+                      />
+                    </div>
 
                     {/* Stock Search Dropdown */}
-                    <Select
-                      showSearch
-                      value={searchSymbol}
-                      placeholder="Search for a stock"
-                      defaultActiveFirstOption={false}
-                      showArrow={false}
-                      filterOption={false}
-                      onSearch={handleSearchInput}
-                      onChange={(value) => setSearchSymbol(value)}
-                      notFoundContent={null}
-                      options={searchOptions}
-                      style={{ width: "200px" }}
-                      className="flex-grow"
-                    />
+                    <div className="flex-1">
+                      <label
+                        htmlFor="stockSearchDropdown"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Search Stock
+                      </label>
+                      <Select
+                        id="stockSearchDropdown"
+                        showSearch
+                        value={searchSymbol}
+                        placeholder="Search for a stock"
+                        defaultActiveFirstOption={false}
+                        showArrow={false}
+                        filterOption={false}
+                        onSearch={handleSearchInput}
+                        onChange={(value) => setSearchSymbol(value)}
+                        notFoundContent={null}
+                        options={searchOptions}
+                        className="w-full"
+                      />
+                    </div>
                   </div>
+
+                  {/* <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Days for Analysis
+                  </label>
+                  <Slider
+                    min={5}
+                    max={maxDays}
+                    value={days}
+                    onChange={(value) => setDays(value)}
+                    tooltip={{ formatter: (value) => `${value} days` }}
+                    marks={{
+                      5: "5",
+                      [days]: `${days}`,
+                      [maxDays]: `${maxDays}`,
+                    }}
+                    step={1} // Ensures precise control over day selection
+                  /> */}
+                  
                   {searchResult && (
                     <Card
                       className="mb-4"
@@ -664,6 +725,10 @@ function App() {
                         <span>
                           <strong>Prev. close:</strong> {searchResult.close}
                         </span>
+                        <span>
+                          <strong>Change:</strong>{" "}
+                          {searchResult.change_percentage}
+                        </span>
                       </p>
                       <p className="pl-3 pr-3">
                         <Slider
@@ -672,7 +737,7 @@ function App() {
                           value={searchResult.price} // Current price position on the slider
                           marks={{
                             [searchResult.low]: {
-                              style: { color: "#00aaff" },
+                              style: { color: "#ff3333" },
                               label: `Low: ${searchResult.low}`,
                             },
                             [searchResult.open]: {
@@ -680,11 +745,11 @@ function App() {
                               label: `Open: ${searchResult.open}`,
                             },
                             [searchResult.price]: {
-                              style: { color: "#00cc44" },
+                              style: { color: "#00aaff" },
                               label: `Price: ${searchResult.price}`,
                             },
                             [searchResult.high]: {
-                              style: { color: "#ff3333" },
+                              style: { color: "#00cc44" },
                               label: `High: ${searchResult.high}`,
                             },
                           }}
@@ -810,8 +875,9 @@ function App() {
                       type="primary"
                       onClick={fetchGainers}
                       className="ml-2"
+                      ghost
                     >
-                      Fetch
+                      Load
                     </Button>
                   </div>
                   {gainers.length > 0 && (
