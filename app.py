@@ -29,12 +29,22 @@ CORS(app)
 load_dotenv()
 
 ENCTOKEN = os.getenv('ENCTOKEN')
-KITE_API_KEY = "TradeViaPython"
 
-# Global variable to hold the KiteApp instance
 kite_instance = KiteApp(enctoken=ENCTOKEN)
 
-# Define a simple neural network model
+sentiment_analyzer = pipeline("sentiment-analysis", model="yiyanghkust/finbert-tone")
+
+time_frame_mapping = {
+    '1': {'interval': 'minute', 'days': 60},
+    '3': {'interval': '3minute', 'days': 100},
+    '5': {'interval': '5minute', 'days': 100},
+    '10': {'interval': '10minute', 'days': 100},
+    '15': {'interval': '15minute', 'days': 200},
+    '30': {'interval': '30minute', 'days': 200},
+    '60': {'interval': '60minute', 'days': 400},
+    '1d': {'interval': 'day', 'days': 2000}
+}
+
 class StockPricePredictor(nn.Module):
     def __init__(self, input_size):
         super(StockPricePredictor, self).__init__()
@@ -137,6 +147,84 @@ class CandlePatternDetector:
             # Convert numpy.int32 to Python int
             results[pattern_name] = int(pattern_value)
         return results
+
+class EnhancedPredictor:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df
+        self.pattern_detector = CandlePatternDetector()
+        
+    def get_prediction(self) -> Dict:
+        try:
+            latest = self.df.iloc[-1]
+            patterns = self.pattern_detector.detect_patterns(self.df)
+            sentiment = analyze_market_sentiment(self.df)
+            
+            # Calculate probability based on multiple factors
+            bullish_factors = 0
+            bearish_factors = 0
+            
+            # Pattern analysis
+            for pattern, value in patterns.items():
+                if value > 0:
+                    bullish_factors += 1
+                elif value < 0:
+                    bearish_factors += 1
+            
+            # Technical indicator analysis
+            if latest['RSI'] > 70:
+                bearish_factors += 1
+            elif latest['RSI'] < 30:
+                bullish_factors += 1
+                
+            if latest['MACD'] > latest['MACD_Signal']:
+                bullish_factors += 1
+            else:
+                bearish_factors += 1
+                
+            if latest['Close'] > latest['BBANDS_Upper']:
+                bearish_factors += 1
+            elif latest['Close'] < latest['BBANDS_Lower']:
+                bullish_factors += 1
+                
+            # Volume analysis
+            if sentiment['volume_trend'] == "High":
+                if latest['Close'] > latest['Open']:
+                    bullish_factors += 1
+                else:
+                    bearish_factors += 1
+                    
+            # Calculate probability
+            total_factors = bullish_factors + bearish_factors
+            if total_factors == 0:
+                probability = 0.5
+            else:
+                probability = bullish_factors / total_factors
+                
+            # Predict price movement
+            atr = latest['ATR']
+            current_price = latest['Close']
+            
+            predicted_movement = (probability - 0.5) * 2 * atr
+            predicted_price = current_price + predicted_movement
+            
+            return {
+                "current_price": float(current_price),
+                "predicted_price": float(predicted_price),
+                "probability": float(probability),
+                "confidence": "High" if abs(probability - 0.5) > 0.3 else "Medium" if abs(probability - 0.5) > 0.15 else "Low",
+                "patterns": {k: int(v) for k, v in patterns.items()},
+                "sentiment": {k: float(v) if isinstance(v, (np.int32, np.int64, np.float32, np.float64)) else v 
+                            for k, v in sentiment.items()},
+                "technical_signals": {
+                    "rsi": float(latest['RSI']),
+                    "macd": float(latest['MACD']),
+                    "macd_signal": float(latest['MACD_Signal']),
+                    "momentum": float(latest['MOM'])
+                }
+            }
+        except Exception as e:
+            print(f"Error: {e}")
+            raise
 
 def get_kite_instance():
     return kite_instance
@@ -305,7 +393,6 @@ def scrape_stock_news(symbol):
         print(f"Error fetching news for {symbol}: {e}")
         return []
 
-sentiment_analyzer = pipeline("sentiment-analysis", model="yiyanghkust/finbert-tone")
 def analyze_sentiment(news_items):
     if not news_items:
         return []
@@ -354,7 +441,6 @@ def analyze_sentiment(news_items):
 
     return sentiments
 
-# Add technical indicators calculation function
 def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     try:
         # Convert price and volume columns to float64
@@ -455,24 +541,10 @@ def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         print(f"Error in calculate_technical_indicators at {e.__traceback__.tb_lineno}: {str(e)}")
         return df
 
-
-time_frame_mapping = {
-    '1': {'interval': 'minute', 'days': 60},
-    '3': {'interval': '3minute', 'days': 100},
-    '5': {'interval': '5minute', 'days': 100},
-    '10': {'interval': '10minute', 'days': 100},
-    '15': {'interval': '15minute', 'days': 200},
-    '30': {'interval': '30minute', 'days': 200},
-    '60': {'interval': '60minute', 'days': 400},
-    '1d': {'interval': 'day', 'days': 2000}
-}
-
-# Function to get interval and days dynamically based on time frame
 def get_time_frame_settings(time_frame):
     time_settings = time_frame_mapping.get(time_frame, {'interval': 'day', 'days': 2000})
     return time_settings['interval'], time_settings['days']
 
-# Modify get_historical_data
 def get_historical_data(symbol,exchange="NSE", interval='day', days=365):
     try:
         kite = get_kite_instance()
@@ -545,7 +617,6 @@ def get_historical_data(symbol,exchange="NSE", interval='day', days=365):
         # Return empty DataFrame instead of None
         return pd.DataFrame()
 
-# Add market sentiment analysis
 def analyze_market_sentiment(df: pd.DataFrame) -> Dict:
     latest = df.iloc[-1]
     
@@ -569,85 +640,6 @@ def analyze_market_sentiment(df: pd.DataFrame) -> Dict:
         "adx": float(adx)  # Convert numpy.float64 to Python float
     }
 
-class EnhancedPredictor:
-    def __init__(self, df: pd.DataFrame):
-        self.df = df
-        self.pattern_detector = CandlePatternDetector()
-        
-    def get_prediction(self) -> Dict:
-        try:
-            latest = self.df.iloc[-1]
-            patterns = self.pattern_detector.detect_patterns(self.df)
-            sentiment = analyze_market_sentiment(self.df)
-            
-            # Calculate probability based on multiple factors
-            bullish_factors = 0
-            bearish_factors = 0
-            
-            # Pattern analysis
-            for pattern, value in patterns.items():
-                if value > 0:
-                    bullish_factors += 1
-                elif value < 0:
-                    bearish_factors += 1
-            
-            # Technical indicator analysis
-            if latest['RSI'] > 70:
-                bearish_factors += 1
-            elif latest['RSI'] < 30:
-                bullish_factors += 1
-                
-            if latest['MACD'] > latest['MACD_Signal']:
-                bullish_factors += 1
-            else:
-                bearish_factors += 1
-                
-            if latest['Close'] > latest['BBANDS_Upper']:
-                bearish_factors += 1
-            elif latest['Close'] < latest['BBANDS_Lower']:
-                bullish_factors += 1
-                
-            # Volume analysis
-            if sentiment['volume_trend'] == "High":
-                if latest['Close'] > latest['Open']:
-                    bullish_factors += 1
-                else:
-                    bearish_factors += 1
-                    
-            # Calculate probability
-            total_factors = bullish_factors + bearish_factors
-            if total_factors == 0:
-                probability = 0.5
-            else:
-                probability = bullish_factors / total_factors
-                
-            # Predict price movement
-            atr = latest['ATR']
-            current_price = latest['Close']
-            
-            predicted_movement = (probability - 0.5) * 2 * atr
-            predicted_price = current_price + predicted_movement
-            
-            return {
-                "current_price": float(current_price),
-                "predicted_price": float(predicted_price),
-                "probability": float(probability),
-                "confidence": "High" if abs(probability - 0.5) > 0.3 else "Medium" if abs(probability - 0.5) > 0.15 else "Low",
-                "patterns": {k: int(v) for k, v in patterns.items()},
-                "sentiment": {k: float(v) if isinstance(v, (np.int32, np.int64, np.float32, np.float64)) else v 
-                            for k, v in sentiment.items()},
-                "technical_signals": {
-                    "rsi": float(latest['RSI']),
-                    "macd": float(latest['MACD']),
-                    "macd_signal": float(latest['MACD_Signal']),
-                    "momentum": float(latest['MOM'])
-                }
-            }
-        except Exception as e:
-            print(f"Error: {e}")
-            raise
-
-# Function to calculate indicators
 def calculate_indicators(data):
     try:
         # Make a copy to avoid modifying the original data
@@ -737,7 +729,6 @@ def train_regression_model(data):
         print(f"Error in train_regression_model: {str(e)}")
         return make_pipeline(StandardScaler(), LinearRegression())  # Default fallback to Linear Regression # Default fallback to Linear Regression
 
-# Function to train the PyTorch model
 def train_pytorch_model(data):
     try:
         # Create the target column for next day's close
@@ -789,7 +780,6 @@ def train_pytorch_model(data):
         print(f"Error in train_pytorch_model: {str(e)}")
         return None
 
-# Function to generate signals and predictions
 def generate_signals(data, regression_model, pytorch_model):
     try:
         latest_data = data.iloc[-1]
@@ -1022,129 +1012,6 @@ def generate_signals(data, regression_model, pytorch_model):
         print(f"Error in generate_signals {e.__traceback__.tb_lineno}: {str(e)}")
         return None
 
-@app.route('/api/profile', methods=['GET'])
-def profile():
-    kite = get_kite_instance()
-    if not kite:
-        return jsonify({"message": "KiteApp instance is not initialized."}), 400
-
-    profile_data = kite.profile()
-    return jsonify({"profile_data": profile_data, "market_status": is_market_open()})
-
-@app.route('/api/instruments', methods=['GET'])
-def get_instruments():
-    exchange = request.args.get('exchange').upper()
-    kite = get_kite_instance()
-    if not kite:
-        return jsonify({"message": "KiteApp instance is not initialized."}), 400
-
-    instruments = kite.instruments(exchange)
-    return jsonify(instruments)
-
-@app.route('/api/order', methods=['POST'])
-def place_order():
-    data = request.json
-    stock_name = data.get('name')
-    quantity = data.get('quantity')
-    exchange = data.get('exchange').upper()
-    target_profit_percentage = data.get('profit_percentage')
-
-    if not is_market_open():
-        return jsonify({"message": "Market is closed."}), 400
-
-    kite = get_kite_instance()
-    if not kite:
-        return jsonify({"message": "KiteApp instance is not initialized."}), 400
-
-    try:
-        # Fetch instrument token
-        instrument_token = None
-        instruments_data = kite.instruments(exchange)
-        for instrument in instruments_data:
-            if instrument['tradingsymbol'].lower() == stock_name.lower():
-                instrument_token = instrument['instrument_token']
-                break
-
-        if not instrument_token:
-            return jsonify({"message": "Instrument not found."}), 404
-
-        # Fetch historical data
-        historical_data = kite.historical_data(
-            instrument_token,
-            datetime.now() - datetime.timedelta(days=2),
-            datetime.now(),
-            "day"
-        )
-        previous_high = max(data['high'] for data in historical_data)
-        previous_low = min(data['low'] for data in historical_data)
-        previous_close = historical_data[-1]['close']
-        
-        # Calculate advanced pivot points
-        pp, s1, s2, s3, r1, r2, r3 = calculate_advanced_pivot(previous_high, previous_low, previous_close)
-
-        ltp_data = kite.ltp(f"{exchange}:{stock_name}")
-        current_price = ltp_data[f"{exchange}:{stock_name}"]['last_price']
-        target_price = calculate_target_price(current_price, target_profit_percentage)
-
-        if current_price <= pp:
-            if current_price < s1:
-                return jsonify({"message": "DON'T BUY IT AND WAIT FOR REVERSAL, IT'S CLOSER TO SUPPORT LEVEL"}), 400
-            else:
-                return jsonify({"message": "DON'T BUY IT BECAUSE IT'S CURRENT PRICE IS BELOW THE PIVOT POINT"}), 400
-        else:
-            if current_price >= r1 - (r1 - pp) * 0.1:
-                return jsonify({"message": "DON'T BUY IT BECAUSE IT'S CLOSER TO R1"}), 400
-            else:
-
-                # buy_order = kite.place_order(
-                #     variety=kite.VARIETY_REGULAR,
-                #     exchange=exchange,
-                #     tradingsymbol=stock_name,
-                #     transaction_type=kite.TRANSACTION_TYPE_BUY,
-                #     quantity=quantity,
-                #     product=kite.PRODUCT_CNC,
-                #     order_type=kite.ORDER_TYPE_MARKET
-                # )
-                # print(f"Buy order placed. Order ID: {buy_order}")
-
-                user_id = kite.profile()["user_id"]
-                kws = KiteTicker(api_key=KITE_API_KEY, access_token=ENCTOKEN+"&user_id="+user_id)
-                
-                def on_ticks(ws, ticks):
-                    if target_price <= ticks[0]["last_price"]:
-                        try:
-                            # sell_order = kite.place_order(
-                            #     variety=kite.VARIETY_REGULAR,
-                            #     exchange=exchange,
-                            #     tradingsymbol=stock_name,
-                            #     transaction_type=kite.TRANSACTION_TYPE_SELL,
-                            #     quantity=quantity,
-                            #     product=kite.PRODUCT_CNC,
-                            #     order_type=kite.ORDER_TYPE_MARKET
-                            # )
-                            print(f"Sell order placed. Order ID: {target_price}")
-                        except Exception as e:
-                            print(f"Error placing sell order: {str(e)}")
-                        finally:
-                            kws.unsubscribe([instrument_token])
-
-                kws.on_ticks = on_ticks
-                kws.connect(threaded=True)
-                while not kws.is_connected():
-                    time.sleep(1)
-                kws.subscribe([instrument_token])
-                kws.set_mode(kws.MODE_QUOTE, [instrument_token])
-                
-                return jsonify({"message": "Order placed successfully.", "order_id": buy_order}), 200
-
-    except Exception as e:
-        return jsonify({"message": f"Error placing order: {str(e)}"}), 500
-
-@app.route('/api/gainers')
-def get_gainers_api():
-    gainers = get_top_gainers()
-    return jsonify(gainers)
-
 def get_stock_details(symbol,exchange):
     try:
         # For Indian stocks, we need to append ".NS" for NSE listings
@@ -1208,90 +1075,6 @@ def get_stock_details(symbol,exchange):
     except Exception as e:
         print(f"Unexpected error in get_stock_details for {symbol}: {str(e)}")
         return None
-
-@app.route('/api/search',methods=['GET'])
-def search_stock():
-    try:
-        symbol = request.args.get('symbol')
-        exchange = request.args.get('exchange')
-        stock_info = get_stock_details(symbol,exchange)
-        if not stock_info:
-            return jsonify({'error': f"Unable to fetch details for {symbol}. Please ensure the symbol is correct and try again."}), 404
-        
-        return jsonify(stock_info)
-    
-    except Exception as e:
-        print(f"Error searching stock {symbol}: {e}")
-        return jsonify({
-            'error': f"Error searching stock {symbol}: {str(e)}"
-        }), 400
-
-@app.route('/api/scrape/<symbol>')
-def scrape_stock(symbol):
-    try:
-        # Fetch news and analyze sentiment
-        news_items = scrape_stock_news(symbol)
-        sentiment = analyze_sentiment(news_items)
-        
-        return jsonify({
-            'news': news_items,
-            'sentiment': sentiment
-        })
-    
-    except Exception as e:
-        print(f"Error scraping stock {symbol}: {e}")
-        return jsonify({
-            'error': f"Error scraping stock {symbol}: {str(e)}"
-        }), 400
-
-@app.route('/api/signals', methods=['GET'])
-def get_signals():
-    try:
-        exchange = request.args.get('exchange').upper()
-        symbol = request.args.get('symbol')
-        time = request.args.get('time')
-        
-        # userdays = request.args.get('days')
-        # try:
-        #     userdays = int(userdays) if userdays and userdays.isdigit() else None
-        # except ValueError:
-        #     userdays = None
-
-        interval,days = get_time_frame_settings(time)
-
-        # effective_days = userdays if userdays is not None else days
-        effective_days=days
-
-
-        # Get historical data
-        data = get_historical_data(symbol,exchange,interval,effective_days)
-        if data.empty:
-            return jsonify({'error': f'No historical data available for {symbol}'}), 404
-            
-        # Calculate indicators
-        data = calculate_technical_indicators(data)
-        
-        # Train models
-        regression_model = train_regression_model(data)
-        pytorch_model = train_pytorch_model(data)
-        
-        # Generate signals with the symbol
-        signals = generate_signals(data, regression_model, pytorch_model)
-        
-        if signals is None:
-            return jsonify({'error': 'Unable to generate signals'}), 500
-            
-        # Convert numpy values to native types
-        signals = convert_to_native_types(signals)
-        
-        return jsonify(signals)
-        
-    except Exception as e:
-        print(f"Error in get_signals for {symbol}: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'details': 'Error occurred while processing signal data'
-        }), 500
 
 def get_top_nse_symbols(allData=False):
     try:
@@ -1605,17 +1388,120 @@ def generate_stock_analysis(allData=False):
         print(f"Error generating stock analysis: {str(e)}")
         return None
 
-if __name__ == '__main__':
-    # Create argument parser
-    parser = argparse.ArgumentParser(description='Stock Analysis and Trading Application')
-    parser.add_argument('--generate', type=str, choices=['true', 'false'], 
-                       help='Generate stock analysis report if true')
-    parser.add_argument('--full', type=str, choices=['true', 'false'], 
-                        default='false', help='Fetch all symbols if true')
+@app.route('/api/profile', methods=['GET'])
+def profile():
+    kite = get_kite_instance()
+    if not kite:
+        return jsonify({"message": "KiteApp instance is not initialized."}), 400
+
+    profile_data = kite.profile()
+    return jsonify({"profile_data": profile_data, "market_status": is_market_open()})
+
+@app.route('/api/instruments', methods=['GET'])
+def get_instruments():
+    exchange = request.args.get('exchange').upper()
+    kite = get_kite_instance()
+    if not kite:
+        return jsonify({"message": "KiteApp instance is not initialized."}), 400
+
+    instruments = kite.instruments(exchange)
+    return jsonify(instruments)
+
+@app.route('/api/gainers')
+def get_gainers_api():
+    gainers = get_top_gainers()
+    return jsonify(gainers)
+
+@app.route('/api/search',methods=['GET'])
+def search_stock():
+    try:
+        symbol = request.args.get('symbol')
+        exchange = request.args.get('exchange')
+        stock_info = get_stock_details(symbol,exchange)
+        if not stock_info:
+            return jsonify({'error': f"Unable to fetch details for {symbol}. Please ensure the symbol is correct and try again."}), 404
+        
+        return jsonify(stock_info)
     
+    except Exception as e:
+        print(f"Error searching stock {symbol}: {e}")
+        return jsonify({
+            'error': f"Error searching stock {symbol}: {str(e)}"
+        }), 400
+
+@app.route('/api/scrape/<symbol>')
+def scrape_stock(symbol):
+    try:
+        # Fetch news and analyze sentiment
+        news_items = scrape_stock_news(symbol)
+        sentiment = analyze_sentiment(news_items)
+        
+        return jsonify({
+            'news': news_items,
+            'sentiment': sentiment
+        })
+    
+    except Exception as e:
+        print(f"Error scraping stock {symbol}: {e}")
+        return jsonify({
+            'error': f"Error scraping stock {symbol}: {str(e)}"
+        }), 400
+
+@app.route('/api/signals', methods=['GET'])
+def get_signals():
+    try:
+        exchange = request.args.get('exchange').upper()
+        symbol = request.args.get('symbol')
+        time = request.args.get('time')
+        
+        # userdays = request.args.get('days')
+        # try:
+        #     userdays = int(userdays) if userdays and userdays.isdigit() else None
+        # except ValueError:
+        #     userdays = None
+
+        interval,days = get_time_frame_settings(time)
+
+        # effective_days = userdays if userdays is not None else days
+        effective_days=days
+
+
+        # Get historical data
+        data = get_historical_data(symbol,exchange,interval,effective_days)
+        if data.empty:
+            return jsonify({'error': f'No historical data available for {symbol}'}), 404
+            
+        # Calculate indicators
+        data = calculate_technical_indicators(data)
+        
+        # Train models
+        regression_model = train_regression_model(data)
+        pytorch_model = train_pytorch_model(data)
+        
+        # Generate signals with the symbol
+        signals = generate_signals(data, regression_model, pytorch_model)
+        
+        if signals is None:
+            return jsonify({'error': 'Unable to generate signals'}), 500
+            
+        # Convert numpy values to native types
+        signals = convert_to_native_types(signals)
+        
+        return jsonify(signals)
+        
+    except Exception as e:
+        print(f"Error in get_signals for {symbol}: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'details': 'Error occurred while processing signal data'
+        }), 500
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Stock Analysis and Trading Application')
+    parser.add_argument('--generate', type=str, choices=['true', 'false'], help='Generate stock analysis report if true')
+    parser.add_argument('--full', type=str, choices=['true', 'false'], default='false', help='Fetch all symbols if true')
     args = parser.parse_args()
     
-    # Check if generate flag is set to true
     if args.generate and args.generate.lower() == 'true':
         all_data = args.full.lower() == 'true'
         print(f"Generating stock analysis report with full data: {all_data}")
