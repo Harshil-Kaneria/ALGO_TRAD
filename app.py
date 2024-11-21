@@ -3,8 +3,7 @@ import time
 import argparse
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from kite_trade import KiteApp
-from kiteconnect import KiteTicker
+from kite_trade import *
 import os
 from datetime import datetime, timedelta,date
 import yfinance as yf
@@ -22,15 +21,43 @@ from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import LinearRegression
 from typing import Dict
 import re
+import pyotp
 
 app = Flask(__name__)
 CORS(app)
 
 load_dotenv()
 
-ENCTOKEN = os.getenv('ENCTOKEN')
+def refresh_kite_instance():
+    TOTP_SECRET = os.getenv('TOTP_SECRET')
+    USER_ID = os.getenv('USER_ID')
+    PASSWORD = os.getenv('PASSWORD')
+    totp = pyotp.TOTP(TOTP_SECRET, interval=30, digits=6, digest="sha1")
+    current_otp = totp.now()
+    new_enctoken = get_enctoken(USER_ID, PASSWORD, current_otp)
+    return KiteApp(enctoken=new_enctoken)
 
-kite_instance = KiteApp(enctoken=ENCTOKEN)
+kite_instance=None
+
+ENCTOKEN_LOGIN = os.getenv('ENCTOKEN_LOGIN')
+if ENCTOKEN_LOGIN == "true":
+    ENCTOKEN = os.getenv('ENCTOKEN')
+    kite_instance = KiteApp(enctoken=ENCTOKEN)
+else:
+    kite_instance = refresh_kite_instance()
+
+def get_kite_instance():
+    global kite_instance
+    kite = kite_instance
+    profile_data = kite.profile()
+    if ENCTOKEN_LOGIN == "true":
+        return kite
+    elif profile_data and "user_id" in profile_data and "user_type" in profile_data:
+        return kite
+    else:
+        refreshed_instance = refresh_kite_instance()
+        kite_instance = refreshed_instance
+        return kite_instance
 
 sentiment_analyzer = pipeline("sentiment-analysis", model="yiyanghkust/finbert-tone")
 
@@ -225,9 +252,6 @@ class EnhancedPredictor:
         except Exception as e:
             print(f"Error: {e}")
             raise
-
-def get_kite_instance():
-    return kite_instance
 
 def convert_to_native_types(obj):
     """Convert numpy/pandas data types to native Python types for JSON serialization"""

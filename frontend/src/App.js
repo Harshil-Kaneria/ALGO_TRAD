@@ -18,7 +18,6 @@ function App() {
   const [exchange, setExchange] = useState("NSE");
   const [timeInterval, setTimeInterval] = useState("1d");
   const [instruments, setInstruments] = useState([]);
-  const [message, setMessage] = useState("");
   const [gainers, setGainers] = useState([]);
   const [selectedGainer, setSelectedGainer] = useState(null);
   const [news, setNews] = useState([]);
@@ -292,13 +291,19 @@ function App() {
       setProfileData(response.data.profile_data);
       setIsMarketOpen(response.data.market_status);
       if (response.data.market_status === false) {
-        setMessage("Please wait until market open");
+        notification.error({
+          message: "Error",
+          description: "Please wait until market open",
+        });
       }
     } catch (error) {
-      setMessage(error.response?.data?.message || "Error logging in");
+      notification.error({
+        message: "Error",
+        description: error.response?.data?.message || "Error logging in",
+      });
     }
   };
- 
+
   // Fetch instruments based on selected exchange
   const fetchInstruments = async () => {
     try {
@@ -367,10 +372,11 @@ function App() {
         `${process.env.REACT_APP_API_BASE_URL}/api/search?exchange=${exchange}&symbol=${searchSymbol}`
       );
       setSearchResult(response.data);
-      setMessage("");
     } catch (error) {
-      console.error("Error searching stock:", error);
-      setMessage(error.response?.data?.error || "Error searching stock");
+      notification.error({
+        message: "Error",
+        description: error.response?.data?.error || "Error searching stock",
+      });
       setSearchResult(null);
     }
   };
@@ -388,8 +394,10 @@ function App() {
         sentiment: response.data.sentiment,
       }));
     } catch (error) {
-      console.error("Error scraping search data:", error);
-      setMessage(error.response?.data?.error || "Error scraping search data");
+      notification.error({
+        message: "Error",
+        description: error.response?.data?.error || "Error scraping search data",
+      });
     } finally {
       setIsSearchScrapingStarted(false);
     }
@@ -419,128 +427,103 @@ function App() {
           </p>
           <hr className="flex-grow border-t border-dashed border-gray-400" />
         </div>
-
-        {profileData ? (
+        <div className="mb-6">
           <div className="mb-6">
-            {/* <div className="bg-gray-100 p-6 rounded-lg shadow-md mb-6">
-              <div className="flex flex-col items-center mb-4">
-                <img
-                  src={profileData.avatar_url}
-                  alt="Avatar"
-                  className="w-32 h-32 rounded-full shadow-md mb-4"
+            <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
+            <div className="flex items-center mb-4 space-x-4">
+              <h2 className="text-2xl font-bold flex-grow">Search Stock</h2>
+              <Button
+                type="primary"
+                onClick={handleSearch}
+                className="ml-2"
+                ghost
+                disabled={!exchange || !searchSymbol || !timeInterval || !days}
+              >
+                Search
+              </Button>
+            </div>
+
+            <div className="flex items-center mb-4 space-x-4">
+              {/* Exchange Dropdown */}
+              <div className="flex-1">
+                <label
+                  htmlFor="exchangeDropdown"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Exchange
+                </label>
+                <Select
+                  id="exchangeDropdown"
+                  value={exchange}
+                  onChange={(value) => setExchange(value)}
+                  options={[
+                    { label: "NSE", value: "NSE" },
+                    { label: "BSE", value: "BSE" },
+                    // Add more exchange options here if needed
+                  ]}
+                  placeholder="Select Exchange"
+                  className="w-full"
                 />
-                <h2 className="text-2xl font-semibold mb-2">
-                  {profileData.user_name}
-                </h2>
-                <p className="text-lg text-gray-600">
-                  <strong>Email:</strong> {profileData.email}
-                </p>
-                <p className="text-lg text-gray-600">
-                  <strong>User ID:</strong> {profileData.user_id}
-                </p>
               </div>
-            </div> */}
 
-            {isMarketOpen && (
-              <>
-                <div className="mb-6">
-                  <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-                  <div className="flex items-center mb-4 space-x-4">
-                    <h2 className="text-2xl font-bold flex-grow">
-                      Search Stock
-                    </h2>
-                    <Button
-                      type="primary"
-                      onClick={handleSearch}
-                      className="ml-2"
-                      ghost
-                      disabled={!exchange || !searchSymbol || !timeInterval || !days}
-                    >
-                      Search
-                    </Button>
-                  </div>
+              {/* Time Interval Dropdown */}
+              <div className="flex-1">
+                <label
+                  htmlFor="timeIntervalDropdown"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Time Interval
+                </label>
+                <Select
+                  id="timeIntervalDropdown"
+                  value={timeInterval}
+                  onChange={(value) => {
+                    setTimeInterval(value);
+                    const maxDays = time_frame_mapping[value]?.days || 5;
+                    setDays(maxDays);
+                    setMaxDays(maxDays);
+                  }}
+                  options={[
+                    { label: "1 Minute", value: "1" },
+                    { label: "3 Minutes", value: "3" },
+                    { label: "5 Minutes", value: "5" },
+                    { label: "10 Minutes", value: "10" },
+                    { label: "15 Minutes", value: "15" },
+                    { label: "30 Minutes", value: "30" },
+                    { label: "1 Hour", value: "60" },
+                    { label: "1 Day", value: "1d" },
+                  ]}
+                  placeholder="Select Time Interval"
+                  className="w-full"
+                />
+              </div>
 
-                  <div className="flex items-center mb-4 space-x-4">
-                    {/* Exchange Dropdown */}
-                    <div className="flex-1">
-                      <label
-                        htmlFor="exchangeDropdown"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Exchange
-                      </label>
-                      <Select
-                        id="exchangeDropdown"
-                        value={exchange}
-                        onChange={(value) => setExchange(value)}
-                        options={[
-                          { label: "NSE", value: "NSE" },
-                          { label: "BSE", value: "BSE" },
-                          // Add more exchange options here if needed
-                        ]}
-                        placeholder="Select Exchange"
-                        className="w-full"
-                      />
-                    </div>
+              {/* Stock Search Dropdown */}
+              <div className="flex-1">
+                <label
+                  htmlFor="stockSearchDropdown"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Search Stock
+                </label>
+                <Select
+                  id="stockSearchDropdown"
+                  showSearch
+                  value={searchSymbol}
+                  placeholder="Search for a stock"
+                  defaultActiveFirstOption={false}
+                  showArrow={false}
+                  filterOption={false}
+                  onSearch={handleSearchInput}
+                  onChange={(value) => setSearchSymbol(value)}
+                  notFoundContent={null}
+                  options={searchOptions}
+                  className="w-full"
+                />
+              </div>
+            </div>
 
-                    {/* Time Interval Dropdown */}
-                    <div className="flex-1">
-                      <label
-                        htmlFor="timeIntervalDropdown"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Time Interval
-                      </label>
-                      <Select
-                        id="timeIntervalDropdown"
-                        value={timeInterval}
-                        onChange={(value) => {
-                          setTimeInterval(value);
-                          const maxDays = time_frame_mapping[value]?.days || 5;
-                          setDays(maxDays);
-                          setMaxDays(maxDays);
-                        }}
-                        options={[
-                          { label: "1 Minute", value: "1" },
-                          { label: "3 Minutes", value: "3" },
-                          { label: "5 Minutes", value: "5" },
-                          { label: "10 Minutes", value: "10" },
-                          { label: "15 Minutes", value: "15" },
-                          { label: "30 Minutes", value: "30" },
-                          { label: "1 Hour", value: "60" },
-                          { label: "1 Day", value: "1d" },
-                        ]}
-                        placeholder="Select Time Interval"
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* Stock Search Dropdown */}
-                    <div className="flex-1">
-                      <label
-                        htmlFor="stockSearchDropdown"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Search Stock
-                      </label>
-                      <Select
-                        id="stockSearchDropdown"
-                        showSearch
-                        value={searchSymbol}
-                        placeholder="Search for a stock"
-                        defaultActiveFirstOption={false}
-                        showArrow={false}
-                        filterOption={false}
-                        onSearch={handleSearchInput}
-                        onChange={(value) => setSearchSymbol(value)}
-                        notFoundContent={null}
-                        options={searchOptions}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-
-                  {/* <label className="block text-sm font-medium text-gray-700 mb-1">
+            {/* <label className="block text-sm font-medium text-gray-700 mb-1">
                     Days for Analysis
                   </label>
                   <Slider
@@ -557,247 +540,218 @@ function App() {
                     step={1} // Ensures precise control over day selection
                   /> */}
 
-                  {searchResult && (
-                    <Card
-                      className="mb-4"
-                      title={`${searchResult.company} (${searchResult.symbol})`}
-                      extra={
-                        <div className="flex justify-center">
-                          <Button
-                            onClick={startSearchScraping}
-                            disabled={isSearchScrapingStarted}
-                            type="primary"
-                            loading={isSearchScrapingStarted}
-                          >
-                            {isSearchScrapingStarted
-                              ? "Scraping..."
-                              : "Start Scraping"}
-                          </Button>
-                        </div>
-                      }
-                    >
-                      <p className="mb-2 flex justify-evenly">
-                        <span>
-                          <strong>Price:</strong> {searchResult.price}
-                        </span>
-                        <span>
-                          <strong>Open:</strong> {searchResult.open}
-                        </span>
-                        <span>
-                          <strong>High:</strong> {searchResult.high}
-                        </span>
-                        <span>
-                          <strong>Low:</strong> {searchResult.low}
-                        </span>
-                        <span>
-                          <strong>Prev. close:</strong> {searchResult.close}
-                        </span>
-                        <span>
-                          <strong>Change:</strong>{" "}
-                          {searchResult.change_percentage}
-                        </span>
-                      </p>
-                      <br/>
-                      <p className="pl-3 pr-3">
-                        <Slider
-                          min={searchResult.low} // Lowest value on the slider
-                          max={searchResult.high} // Highest value on the slider
-                          value={searchResult.price} // Current price position on the slider
-                          marks={{
-                            [searchResult.low]: {
-                              style: { color: "#ff3333" },
-                              label: `Low: ${searchResult.low}`,
-                            },
-                            [searchResult.open]: {
-                              style: { color: "#ffaa00" },
-                              label: `Open: ${searchResult.open}`,
-                            },
-                            [searchResult.price]: {
-                              style: { color: "#00aaff" },
-                              label: `Price: ${searchResult.price}`,
-                            },
-                            [searchResult.high]: {
-                              style: { color: "#00cc44" },
-                              label: `High: ${searchResult.high}`,
-                            },
-                          }}
-                          tooltip={{ formatter: null }} // Disables tooltip for interactivity
-                          disabled // Makes the slider read-only
-                          trackStyle={{
-                            background:
-                              "linear-gradient(90deg, #00aaff, #00cc44)", // Gradient track
-                            height: "8px",
-                          }}
-                          railStyle={{
-                            background: "#f0f0f0", // Light gray rail background
-                            height: "8px",
-                          }}
-                          handleStyle={{
-                            borderColor: "#00cc44", // Color of the handle
-                            height: "16px",
-                            width: "16px",
-                            marginTop: "-4px",
-                            backgroundColor: "#ffffff",
-                            cursor: "default", // Removes hover cross sign
-                          }}
-                        />
-                      </p>
-                      <br/>
-                      <div className="flex justify-center">
-                        <Tag color="blue">Position: {searchResult.position}</Tag>
-                        <Tag color="blue">
-                          PP: {searchResult.pivot_points.pp}
-                        </Tag>
-                        <Tag color="red">
-                          R1: {searchResult.pivot_points.r1}
-                        </Tag>
-                        <Tag color="red">
-                          R2: {searchResult.pivot_points.r2}
-                        </Tag>
-                        <Tag color="red">
-                          R3: {searchResult.pivot_points.r3}
-                        </Tag>
-                        <Tag color="green">
-                          S1: {searchResult.pivot_points.s1}
-                        </Tag>
-                        <Tag color="green">
-                          S2: {searchResult.pivot_points.s2}
-                        </Tag>
-                        <Tag color="green">
-                          S3: {searchResult.pivot_points.s3}
-                        </Tag>
-                      </div>
-                    </Card>
-                  )}
-                  {signals && <>{renderSignals()}</>}
-                  {searchResult && searchResult.news && (
-                    <Card
-                      className="mb-6"
-                      title={`News and Sentiment for ${searchResult.symbol}`}
-                      bordered
-                    >
-                      <List
-                        itemLayout="vertical"
-                        dataSource={searchResult.news}
-                        renderItem={(item, index) => (
-                          <List.Item key={index}>
-                            <Typography.Title level={4} style={{ margin: 0 }}>
-                              {item.title}
-                            </Typography.Title>
-                            <Typography.Paragraph>
-                              Published By - <strong>{item.publisher}</strong>{" "}
-                              on <strong>{item.publish_time}</strong>
-                            </Typography.Paragraph>
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Read More
-                            </a>
-                            <br />
-                            <Tag
-                              color={
-                                searchResult.sentiment[index].sentiment ===
-                                "Positive"
-                                  ? "green"
-                                  : searchResult.sentiment[index].sentiment ===
-                                    "Negative"
-                                  ? "red"
-                                  : "gold"
-                              }
-                            >
-                              Sentiment:{" "}
-                              {searchResult.sentiment[index].sentiment}
-                            </Tag>
-                            <Tag color="blue">
-                              Score: {searchResult.sentiment[index].score}
-                            </Tag>
-                          </List.Item>
-                        )}
-                      />
-                    </Card>
-                  )}
-                </div>
-
-                <div className="mb-6">
-                  <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-                  <div className="flex items-center mb-4 space-x-4">
-                    <h2 className="text-2xl font-bold flex-grow">
-                      Top Gainers
-                    </h2>
+            {searchResult && (
+              <Card
+                className="mb-4"
+                title={`${searchResult.company} (${searchResult.symbol})`}
+                extra={
+                  <div className="flex justify-center">
                     <Button
+                      onClick={startSearchScraping}
+                      disabled={isSearchScrapingStarted}
                       type="primary"
-                      onClick={fetchGainers}
-                      className="ml-2"
-                      ghost
+                      loading={isSearchScrapingStarted}
                     >
-                      Load
+                      {isSearchScrapingStarted
+                        ? "Scraping..."
+                        : "Start Scraping"}
                     </Button>
                   </div>
-                  {gainers.length > 0 && (
-                    <GainersTable
-                      gainers={gainers}
-                      isScrapingStarted={isScrapingStarted}
-                      selectedGainer={selectedGainer}
-                      startScraping={startScraping}
-                    />
-                  )}
+                }
+              >
+                <p className="mb-2 flex justify-evenly">
+                  <span>
+                    <strong>Price:</strong> {searchResult.price}
+                  </span>
+                  <span>
+                    <strong>Open:</strong> {searchResult.open}
+                  </span>
+                  <span>
+                    <strong>High:</strong> {searchResult.high}
+                  </span>
+                  <span>
+                    <strong>Low:</strong> {searchResult.low}
+                  </span>
+                  <span>
+                    <strong>Prev. close:</strong> {searchResult.close}
+                  </span>
+                  <span>
+                    <strong>Change:</strong> {searchResult.change_percentage}
+                  </span>
+                </p>
+                <br />
+                <p className="pl-3 pr-3">
+                  <Slider
+                    min={searchResult.low} // Lowest value on the slider
+                    max={searchResult.high} // Highest value on the slider
+                    value={searchResult.price} // Current price position on the slider
+                    marks={{
+                      [searchResult.low]: {
+                        style: { color: "#ff3333" },
+                        label: `Low: ${searchResult.low}`,
+                      },
+                      [searchResult.open]: {
+                        style: { color: "#ffaa00" },
+                        label: `Open: ${searchResult.open}`,
+                      },
+                      [searchResult.price]: {
+                        style: { color: "#00aaff" },
+                        label: `Price: ${searchResult.price}`,
+                      },
+                      [searchResult.high]: {
+                        style: { color: "#00cc44" },
+                        label: `High: ${searchResult.high}`,
+                      },
+                    }}
+                    tooltip={{ formatter: null }} // Disables tooltip for interactivity
+                    disabled // Makes the slider read-only
+                    trackStyle={{
+                      background: "linear-gradient(90deg, #00aaff, #00cc44)", // Gradient track
+                      height: "8px",
+                    }}
+                    railStyle={{
+                      background: "#f0f0f0", // Light gray rail background
+                      height: "8px",
+                    }}
+                    handleStyle={{
+                      borderColor: "#00cc44", // Color of the handle
+                      height: "16px",
+                      width: "16px",
+                      marginTop: "-4px",
+                      backgroundColor: "#ffffff",
+                      cursor: "default", // Removes hover cross sign
+                    }}
+                  />
+                </p>
+                <br />
+                <div className="flex justify-center">
+                  <Tag color="blue">Position: {searchResult.position}</Tag>
+                  <Tag color="blue">PP: {searchResult.pivot_points.pp}</Tag>
+                  <Tag color="red">R1: {searchResult.pivot_points.r1}</Tag>
+                  <Tag color="red">R2: {searchResult.pivot_points.r2}</Tag>
+                  <Tag color="red">R3: {searchResult.pivot_points.r3}</Tag>
+                  <Tag color="green">S1: {searchResult.pivot_points.s1}</Tag>
+                  <Tag color="green">S2: {searchResult.pivot_points.s2}</Tag>
+                  <Tag color="green">S3: {searchResult.pivot_points.s3}</Tag>
                 </div>
-
-                {news.length > 0 && selectedGainer && (
-                  <Card
-                    className="mb-6"
-                    title={`News and Sentiment for ${selectedGainer}`}
-                    bordered
-                  >
-                    <List
-                      itemLayout="vertical"
-                      dataSource={news}
-                      renderItem={(item, index) => (
-                        <List.Item key={index}>
-                          <Typography.Title level={4} style={{ margin: 0 }}>
-                            {item.title}
-                          </Typography.Title>
-                          <Typography.Paragraph>
-                            Published By - <strong>{item.publisher}</strong> on{" "}
-                            <strong>{item.publish_time}</strong>
-                          </Typography.Paragraph>
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Read More
-                          </a>
-                          <br />
-                          <Tag
-                            color={
-                              sentiment[index].sentiment === "Positive"
-                                ? "green"
-                                : sentiment[index].sentiment === "Negative"
-                                ? "red"
-                                : "gold"
-                            }
-                          >
-                            Sentiment: {sentiment[index].sentiment}
-                          </Tag>
-                          <Tag color="blue">
-                            Score: {sentiment[index].score}
-                          </Tag>
-                        </List.Item>
-                      )}
-                    />
-                  </Card>
-                )}
-              </>
+              </Card>
+            )}
+            {signals && <>{renderSignals()}</>}
+            {searchResult && searchResult.news && (
+              <Card
+                className="mb-6"
+                title={`News and Sentiment for ${searchResult.symbol}`}
+                bordered
+              >
+                <List
+                  itemLayout="vertical"
+                  dataSource={searchResult.news}
+                  renderItem={(item, index) => (
+                    <List.Item key={index}>
+                      <Typography.Title level={4} style={{ margin: 0 }}>
+                        {item.title}
+                      </Typography.Title>
+                      <Typography.Paragraph>
+                        Published By - <strong>{item.publisher}</strong> on{" "}
+                        <strong>{item.publish_time}</strong>
+                      </Typography.Paragraph>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Read More
+                      </a>
+                      <br />
+                      <Tag
+                        color={
+                          searchResult.sentiment[index].sentiment === "Positive"
+                            ? "green"
+                            : searchResult.sentiment[index].sentiment ===
+                              "Negative"
+                            ? "red"
+                            : "gold"
+                        }
+                      >
+                        Sentiment: {searchResult.sentiment[index].sentiment}
+                      </Tag>
+                      <Tag color="blue">
+                        Score: {searchResult.sentiment[index].score}
+                      </Tag>
+                    </List.Item>
+                  )}
+                />
+              </Card>
             )}
           </div>
-        ) : (
-          <p className="mt-4 text-red-600">Loading or not working</p>
-        )}
 
-        {message && <p className="mt-4 text-red-600">{message}</p>}
+          <div className="mb-6">
+            <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
+            <div className="flex items-center mb-4 space-x-4">
+              <h2 className="text-2xl font-bold flex-grow">Top Gainers</h2>
+              <Button
+                type="primary"
+                onClick={fetchGainers}
+                className="ml-2"
+                ghost
+              >
+                Load
+              </Button>
+            </div>
+            {gainers.length > 0 && (
+              <GainersTable
+                gainers={gainers}
+                isScrapingStarted={isScrapingStarted}
+                selectedGainer={selectedGainer}
+                startScraping={startScraping}
+              />
+            )}
+          </div>
+
+          {news.length > 0 && selectedGainer && (
+            <Card
+              className="mb-6"
+              title={`News and Sentiment for ${selectedGainer}`}
+              bordered
+            >
+              <List
+                itemLayout="vertical"
+                dataSource={news}
+                renderItem={(item, index) => (
+                  <List.Item key={index}>
+                    <Typography.Title level={4} style={{ margin: 0 }}>
+                      {item.title}
+                    </Typography.Title>
+                    <Typography.Paragraph>
+                      Published By - <strong>{item.publisher}</strong> on{" "}
+                      <strong>{item.publish_time}</strong>
+                    </Typography.Paragraph>
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Read More
+                    </a>
+                    <br />
+                    <Tag
+                      color={
+                        sentiment[index].sentiment === "Positive"
+                          ? "green"
+                          : sentiment[index].sentiment === "Negative"
+                          ? "red"
+                          : "gold"
+                      }
+                    >
+                      Sentiment: {sentiment[index].sentiment}
+                    </Tag>
+                    <Tag color="blue">Score: {sentiment[index].score}</Tag>
+                  </List.Item>
+                )}
+              />
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );
