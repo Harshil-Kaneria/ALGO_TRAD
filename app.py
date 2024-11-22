@@ -22,6 +22,11 @@ from sklearn.linear_model import LinearRegression
 from typing import Dict
 import re
 import pyotp
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
+import base64
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -39,6 +44,7 @@ def refresh_kite_instance():
 
 kite_instance=None
 
+API_SECRET_KEY = os.getenv('API_SECRET_KEY')
 ENCTOKEN_LOGIN = os.getenv('ENCTOKEN_LOGIN')
 if ENCTOKEN_LOGIN == "true":
     ENCTOKEN = os.getenv('ENCTOKEN')
@@ -252,6 +258,35 @@ class EnhancedPredictor:
         except Exception as e:
             print(f"Error: {e}")
             raise
+
+def encrypt_message(message, key=API_SECRET_KEY):
+    """
+    Encrypts a message using AES.
+    :param message: The plaintext message (string, dict, or list) to encrypt.
+    :param key: A 32-byte encryption key.
+    :return: Base64 encoded ciphertext and IV.
+    """
+    # Ensure the key is 32 bytes (256-bit key)
+    key = key.ljust(32)[:32].encode()
+
+    # Generate a random 16-byte IV
+    iv = os.urandom(16)
+
+    # Convert dict or list to JSON string
+    if isinstance(message, (dict, list)):
+        message = json.dumps(message)
+
+    # Pad the plaintext to a multiple of 16 bytes
+    padder = padding.PKCS7(128).padder()
+    padded_data = padder.update(message.encode()) + padder.finalize()
+
+    # Encrypt the data
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+
+    # Return Base64 encoded ciphertext and IV
+    return base64.b64encode(iv + ciphertext).decode()
 
 def convert_to_native_types(obj):
     """Convert numpy/pandas data types to native Python types for JSON serialization"""
@@ -1416,25 +1451,25 @@ def generate_stock_analysis(allData=False):
 def profile():
     kite = get_kite_instance()
     if not kite:
-        return jsonify({"message": "KiteApp instance is not initialized."}), 400
+        return encrypt_message({"message": "KiteApp instance is not initialized."}), 400
 
     profile_data = kite.profile()
-    return jsonify({"profile_data": profile_data, "market_status": is_market_open()})
+    return encrypt_message({"profile_data": profile_data, "market_status": is_market_open()})
 
 @app.route('/api/instruments', methods=['GET'])
 def get_instruments():
     exchange = request.args.get('exchange').upper()
     kite = get_kite_instance()
     if not kite:
-        return jsonify({"message": "KiteApp instance is not initialized."}), 400
+        return encrypt_message({"message": "KiteApp instance is not initialized."}), 400
 
     instruments = kite.instruments(exchange)
-    return jsonify(instruments)
+    return encrypt_message(instruments)
 
 @app.route('/api/gainers')
 def get_gainers_api():
     gainers = get_top_gainers()
-    return jsonify(gainers)
+    return encrypt_message(gainers)
 
 @app.route('/api/search',methods=['GET'])
 def search_stock():
@@ -1443,13 +1478,13 @@ def search_stock():
         exchange = request.args.get('exchange')
         stock_info = get_stock_details(symbol,exchange)
         if not stock_info:
-            return jsonify({'error': f"Unable to fetch details for {symbol}. Please ensure the symbol is correct and try again."}), 404
+            return encrypt_message({'error': f"Unable to fetch details for {symbol}. Please ensure the symbol is correct and try again."}), 404
         
-        return jsonify(stock_info)
+        return encrypt_message(stock_info)
     
     except Exception as e:
         print(f"Error searching stock {symbol}: {e}")
-        return jsonify({
+        return encrypt_message({
             'error': f"Error searching stock {symbol}: {str(e)}"
         }), 400
 
@@ -1460,14 +1495,14 @@ def scrape_stock(symbol):
         news_items = scrape_stock_news(symbol)
         sentiment = analyze_sentiment(news_items)
         
-        return jsonify({
+        return encrypt_message({
             'news': news_items,
             'sentiment': sentiment
         })
     
     except Exception as e:
         print(f"Error scraping stock {symbol}: {e}")
-        return jsonify({
+        return encrypt_message({
             'error': f"Error scraping stock {symbol}: {str(e)}"
         }), 400
 
@@ -1493,7 +1528,7 @@ def get_signals():
         # Get historical data
         data = get_historical_data(symbol,exchange,interval,effective_days)
         if data.empty:
-            return jsonify({'error': f'No historical data available for {symbol}'}), 404
+            return encrypt_message({'error': f'No historical data available for {symbol}'}), 404
             
         # Calculate indicators
         data = calculate_technical_indicators(data)
@@ -1506,16 +1541,16 @@ def get_signals():
         signals = generate_signals(data, regression_model, pytorch_model)
         
         if signals is None:
-            return jsonify({'error': 'Unable to generate signals'}), 500
+            return encrypt_message({'error': 'Unable to generate signals'}), 500
             
         # Convert numpy values to native types
         signals = convert_to_native_types(signals)
         
-        return jsonify(signals)
+        return encrypt_message(signals)
         
     except Exception as e:
         print(f"Error in get_signals for {symbol}: {str(e)}")
-        return jsonify({
+        return encrypt_message({
             'error': str(e),
             'details': 'Error occurred while processing signal data'
         }), 500

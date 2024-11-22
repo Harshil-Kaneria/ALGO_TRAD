@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import CryptoJS from 'crypto-js';
 import GainersTable from "./GainersTable";
 import {
   Card,
@@ -11,6 +12,43 @@ import {
   Select,
   Slider,
 } from "antd";
+
+const decryptMessage = (encryptedMessage, secretKey=process.env.REACT_APP_API_SECRET_KEY) => {
+  // Ensure the key matches the length (256 bits / 32 bytes)
+  const key = CryptoJS.enc.Utf8.parse(secretKey.padEnd(32).slice(0, 32));
+
+  // Decode Base64
+  const encryptedBytes = CryptoJS.enc.Base64.parse(encryptedMessage);
+
+  // Extract IV (first 16 bytes)
+  const iv = CryptoJS.lib.WordArray.create(encryptedBytes.words.slice(0, 4), 16);
+
+  // Extract ciphertext
+  const ciphertext = CryptoJS.lib.WordArray.create(encryptedBytes.words.slice(4), encryptedBytes.sigBytes - 16);
+
+  // Decrypt the data
+  const decrypted = CryptoJS.AES.decrypt({ ciphertext }, key, { iv });
+  return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8))
+};
+
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_BASE_URL,
+});
+
+// Add a response interceptor
+apiClient.interceptors.response.use(
+  (response) => {
+    // Decrypt the response data
+    if (response.data) {
+      response.data = decryptMessage(response.data);
+    }
+    return response;
+  },
+  (error) => {
+    // Handle any error
+    return Promise.reject(error);
+  }
+);
 
 function App() {
   const [profileData, setProfileData] = useState(null);
@@ -285,9 +323,10 @@ function App() {
   // Fetch user profile data
   const fetchProfileData = async () => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/profile`
+      let response = await apiClient.get(
+        `/api/profile`
       );
+      console.log('response',response)
       setProfileData(response.data.profile_data);
       setIsMarketOpen(response.data.market_status);
       if (response.data.market_status === false) {
@@ -307,8 +346,8 @@ function App() {
   // Fetch instruments based on selected exchange
   const fetchInstruments = async () => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/instruments?exchange=${exchange}`
+      const response = await apiClient.get(
+        `/api/instruments?exchange=${exchange}`
       );
       setInstruments(response.data);
       setSearchSymbol("");
@@ -321,8 +360,8 @@ function App() {
   // Fetch top gainers
   const fetchGainers = async () => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/gainers`
+      const response = await apiClient.get(
+        `/api/gainers`
       );
       setGainers(response.data);
     } catch (error) {
@@ -335,8 +374,8 @@ function App() {
     setIsScrapingStarted(true);
     setSelectedGainer(symbol);
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/scrape/${symbol}`
+      const response = await apiClient.get(
+        `/api/scrape/${symbol}`
       );
       setNews(response.data.news);
       setSentiment(response.data.sentiment);
@@ -349,8 +388,8 @@ function App() {
   const handleAnalysisSearch = async () => {
     try {
       setSignals(null);
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/signals?exchange=${exchange}&symbol=${searchSymbol}&time=${timeInterval}&days=${days}`
+      const response = await apiClient.get(
+        `/api/signals?exchange=${exchange}&symbol=${searchSymbol}&time=${timeInterval}&days=${days}`
       );
       if (response.data) {
         console.log("Initial signals:", response.data);
@@ -368,8 +407,8 @@ function App() {
   const handleSearch = async () => {
     handleAnalysisSearch();
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/search?exchange=${exchange}&symbol=${searchSymbol}`
+      const response = await apiClient.get(
+        `/api/search?exchange=${exchange}&symbol=${searchSymbol}`
       );
       setSearchResult(response.data);
     } catch (error) {
@@ -385,8 +424,8 @@ function App() {
     if (isSearchScrapingStarted) return;
     setIsSearchScrapingStarted(true);
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/scrape/${searchResult.symbol}`
+      const response = await apiClient.get(
+        `/api/scrape/${searchResult.symbol}`
       );
       setSearchResult((prevState) => ({
         ...prevState,
@@ -418,7 +457,7 @@ function App() {
     <div className="bg-gray-100 flex items-center justify-center min-h-screen">
       <div className="bg-white rounded-lg shadow-lg p-8 w-3/4 relative">
         <h1 className="text-3xl font-bold text-center mb-6">
-          Kite Smart Ai Based Trading App
+          Smart Ai Trading
         </h1>
         <div className="flex items-center mb-6">
           <hr className="flex-grow border-t border-dashed border-gray-400" />
@@ -427,9 +466,8 @@ function App() {
           </p>
           <hr className="flex-grow border-t border-dashed border-gray-400" />
         </div>
-        <div className="mb-6">
+        <div className="">
           <div className="mb-6">
-            <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
             <div className="flex items-center mb-4 space-x-4">
               <h2 className="text-2xl font-bold flex-grow">Search Stock</h2>
               <Button
@@ -685,7 +723,7 @@ function App() {
             )}
           </div>
 
-          <div className="mb-6">
+          <div className="mb-3">
             <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
             <div className="flex items-center mb-4 space-x-4">
               <h2 className="text-2xl font-bold flex-grow">Top Gainers</h2>
