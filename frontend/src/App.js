@@ -11,6 +11,9 @@ import {
   notification,
   Select,
   Slider,
+  Layout,
+  Result,
+  Spin
 } from "antd";
 
 const decryptMessage = (encryptedMessage, secretKey=process.env.REACT_APP_API_SECRET_KEY) => {
@@ -50,6 +53,32 @@ apiClient.interceptors.response.use(
   }
 );
 
+const { Content } = Layout;
+
+const MaintenancePage = ({ message, description, onRetry }) => (
+  <Layout style={{ minHeight: "100vh" }}>
+    <Content
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#f0f2f5",
+      }}
+    >
+      <Result
+        status="error"
+        title={message}
+        subTitle={description}
+        extra={
+          <Button type="primary" onClick={onRetry}>
+            Retry
+          </Button>
+        }
+      />
+    </Content>
+  </Layout>
+);
+
 function App() {
   const [profileData, setProfileData] = useState(null);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
@@ -68,6 +97,8 @@ function App() {
   const [signals, setSignals] = useState(null);
   const [days, setDays] = React.useState(2000);
   const [maxDays, setMaxDays] = React.useState(2000);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const time_frame_mapping = {
     1: { interval: "minute", days: 60 },
@@ -320,13 +351,11 @@ function App() {
     setSearchOptions(options);
   };
 
-  // Fetch user profile data
   const fetchProfileData = async () => {
     try {
       let response = await apiClient.get(
         `/api/profile`
       );
-      console.log('response',response)
       setProfileData(response.data.profile_data);
       setIsMarketOpen(response.data.market_status);
       if (response.data.market_status === false) {
@@ -336,15 +365,13 @@ function App() {
         });
       }
     } catch (error) {
-      notification.error({
-        message: "Error",
-        description: error.response?.data?.message || "Error logging in",
-      });
+      const errorMessage = error.response?.data?.message || "Service is temporarily unavailable.";
+      setError({ message: "Service Unavailable", description: errorMessage });
     }
   };
 
-  // Fetch instruments based on selected exchange
   const fetchInstruments = async () => {
+    setIsLoading(true);
     try {
       const response = await apiClient.get(
         `/api/instruments?exchange=${exchange}`
@@ -354,11 +381,13 @@ function App() {
       handleSearchInput("");
     } catch (error) {
       console.error("Error fetching instruments:", error);
+    }finally {
+      setIsLoading(false);
     }
   };
 
-  // Fetch top gainers
   const fetchGainers = async () => {
+    setIsLoading(true);
     try {
       const response = await apiClient.get(
         `/api/gainers`
@@ -366,11 +395,13 @@ function App() {
       setGainers(response.data);
     } catch (error) {
       console.error("Error fetching gainers:", error);
+    }finally {
+      setIsLoading(false);
     }
   };
 
-  // Start scraping for a specific stock
   const startScraping = async (symbol) => {
+    setIsLoading(true);
     setIsScrapingStarted(true);
     setSelectedGainer(symbol);
     try {
@@ -381,11 +412,14 @@ function App() {
       setSentiment(response.data.sentiment);
     } catch (error) {
       console.error("Error scraping data:", error);
+    }finally {
+      setIsLoading(false);
+      setIsScrapingStarted(false);
     }
-    setIsScrapingStarted(false);
   };
 
   const handleAnalysisSearch = async () => {
+    setIsLoading(true);
     try {
       setSignals(null);
       const response = await apiClient.get(
@@ -401,11 +435,13 @@ function App() {
         message: "Error",
         description: error.response?.data?.error || "Failed to fetch signals",
       });
+    }finally {
+      setIsLoading(false);
     }
   };
 
   const handleSearch = async () => {
-    handleAnalysisSearch();
+    setIsLoading(true);
     try {
       const response = await apiClient.get(
         `/api/search?exchange=${exchange}&symbol=${searchSymbol}`
@@ -417,10 +453,14 @@ function App() {
         description: error.response?.data?.error || "Error searching stock",
       });
       setSearchResult(null);
+    }finally {
+      setIsLoading(false);
+      handleAnalysisSearch();
     }
   };
 
   const startSearchScraping = async () => {
+    setIsLoading(true);
     if (isSearchScrapingStarted) return;
     setIsSearchScrapingStarted(true);
     try {
@@ -439,6 +479,7 @@ function App() {
       });
     } finally {
       setIsSearchScrapingStarted(false);
+      setIsLoading(false);
     }
   };
 
@@ -453,6 +494,31 @@ function App() {
     }
   }, [exchange, profileData, isMarketOpen]);
 
+  if (error) {
+    return (
+      <MaintenancePage
+        message={error.message}
+        description={error.description}
+        onRetry={() => {
+          setError(null); // Clear the error state
+          fetchProfileData(); // Retry fetching data
+        }}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-gray-100 bg-opacity-90 flex flex-col justify-center items-center z-50 backdrop-blur-sm">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 border-solid border-opacity-70 mb-6"></div>
+          <h1 className="text-2xl font-semibold text-gray-700">Loading, please wait...</h1>
+          <p className="text-gray-500 mt-2">We’re fetching the latest data for you.</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="bg-gray-100 flex items-center justify-center min-h-screen">
       <div className="bg-white rounded-lg shadow-lg p-8 w-3/4 relative">

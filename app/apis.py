@@ -2,10 +2,13 @@
 def profile():
     kite = get_kite_instance()
     if not kite:
-        return encrypt_message({"message": "KiteApp instance is not initialized."}), 400
+        return encrypt_message({"message": "KiteApp instance is not initialized."}), 500
 
     profile_data = kite.profile()
-    return encrypt_message({"profile_data": profile_data, "market_status": is_market_open()})
+    if profile_data is None:
+        return encrypt_message({"message": "Failed to retrieve profile data."}), 500
+    
+    return encrypt_message({"profile_data": {'isWorking':True}, "market_status": is_market_open()})
 
 @app.route('/api/instruments', methods=['GET'])
 def get_instruments():
