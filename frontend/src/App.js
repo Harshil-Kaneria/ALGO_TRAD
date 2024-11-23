@@ -12,8 +12,7 @@ import {
   Select,
   Slider,
   Layout,
-  Result,
-  Spin
+  Result
 } from "antd";
 
 const decryptMessage = (encryptedMessage, secretKey=process.env.REACT_APP_API_SECRET_KEY) => {
@@ -352,6 +351,7 @@ function App() {
   };
 
   const fetchProfileData = async () => {
+    setIsLoading(true);
     try {
       let response = await apiClient.get(
         `/api/profile`
@@ -367,6 +367,7 @@ function App() {
     } catch (error) {
       const errorMessage = error.response?.data?.message || "Service is temporarily unavailable.";
       setError({ message: "Service Unavailable", description: errorMessage });
+      setIsLoading(false);
     }
   };
 
