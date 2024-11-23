@@ -1,3 +1,7 @@
+app = Flask(__name__)
+CORS(app)
+load_dotenv()
+
 API_SECRET_KEY = os.getenv('API_SECRET_KEY')
 ENCTOKEN_LOGIN = os.getenv('ENCTOKEN_LOGIN')
 
