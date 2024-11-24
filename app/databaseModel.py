@@ -7,6 +7,10 @@ class UserTable(db.Model):
 
 # Custom admin view for authentication
 class MyAdminIndexView(AdminIndexView):
+    def is_visible(self):
+        # This view won't appear in the menu structure
+        return False
+
     def is_accessible(self):
         return session.get("admin_logged_in")
 
@@ -24,8 +28,9 @@ class UserTableView(ModelView):
         return redirect(url_for("login"))
 
 # Add Flask-Admin with custom views
-admin = Admin(app, index_view=MyAdminIndexView(), template_mode="bootstrap4")
+admin = Admin(app,name="Smart AI Trading Admin",index_view=MyAdminIndexView(), template_mode="bootstrap4")
 admin.add_view(UserTableView(UserTable, db.session))
+admin.add_link(MenuLink(name="Logout", url="/logout"))
 
 # Routes for login/logout
 @app.route("/login/", methods=["GET", "POST"])
@@ -36,7 +41,7 @@ def login():
         if email == os.getenv('ADMIN_EMAIL') and password == os.getenv('ADMIN_PASSWORD'):
             session["admin_logged_in"] = True
             flash("Login successful!", "success")
-            return redirect(url_for("admin_dashboard"))
+            return redirect('/admin/usertable')
         else:
             flash("Invalid login. Please try again.", "danger")
 
@@ -78,7 +83,7 @@ def login():
                             <label for="password">Password:</label>
                             <input type="password" class="form-control" id="password" name="password" required>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-block">Login</button>
+                        <button type="submit" class="btn btn-outline-success btn-block">Login</button>
                     </form>
                 </div>
             </div>
@@ -86,11 +91,6 @@ def login():
     </body>
     </html>
     """)
-
-# Admin Dashboard Route (for redirection after login)
-@app.route("/admin/")
-def admin_dashboard():
-    return "<h1>Welcome to the Admin Dashboard</h1>"
 
 @app.route("/logout/")
 def logout():
