@@ -34,3 +34,5 @@ from flask_admin.base import AdminIndexView,expose
 from flask_admin.menu import MenuLink
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_babel import Babel
+import random
+import string

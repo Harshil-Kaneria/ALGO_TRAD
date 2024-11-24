@@ -3,10 +3,28 @@ class UserTable(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
     email = db.Column(db.String(100), nullable=False)
-    age = db.Column(db.Integer, nullable=True)
+    number = db.Column(db.String(15), nullable=False)
+    loginPin = db.Column(db.String(6), nullable=False, default=lambda: ''.join(random.choices(string.digits, k=6)))
+    type = db.Column(db.String(10), nullable=False, default='isPAID')  # can be 'isVIP' or 'isPAID'
+    createdAt = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updatedAt = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<User {self.name}>'
 
 # Custom admin view for authentication
 class MyAdminIndexView(AdminIndexView):
+    @expose('/')
+    def index(self):
+        total_users = UserTable.query.count()
+        total_paid_users = UserTable.query.filter_by(type='isPAID').count()
+        total_vip_users = UserTable.query.filter_by(type='isVIP').count()
+
+        return self.render('admin/index.html', 
+                           total_users=total_users, 
+                           total_paid_users=total_paid_users, 
+                           total_vip_users=total_vip_users)
+
     def is_visible(self):
         # This view won't appear in the menu structure
         return False
