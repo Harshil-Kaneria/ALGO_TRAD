@@ -5,6 +5,7 @@ def fileLoad(name):
 files_to_load = [
     'app/imports.py',
     'app/globalVariables.py',
+    'app/databaseModel.py',
     'app/dataLogin.py',
     'app/classAI.py',
     'app/functions.py',

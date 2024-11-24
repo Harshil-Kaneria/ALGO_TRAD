@@ -1,4 +1,14 @@
 app = Flask(__name__)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv('SQLALCHEMY_DATABASE_URI')
+app.config["SECRET_KEY"] = os.getenv('SECRET_DATABASE_KEY')
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config['BABEL_DEFAULT_LOCALE'] = 'en'  # Set the default locale to English
+app.config['BABEL_DEFAULT_TIMEZONE'] = 'UTC'  # Set the default timezone to UTC
+
+babel = Babel(app)
+db = SQLAlchemy(app)
+
 CORS(app)
 load_dotenv()
 
