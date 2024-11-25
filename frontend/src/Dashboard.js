@@ -14,6 +14,7 @@ import {
   Layout,
   Result
 } from "antd";
+import { useNavigate } from 'react-router-dom';
 
 const decryptMessage = (encryptedMessage, secretKey=process.env.REACT_APP_API_SECRET_KEY) => {
   // Ensure the key matches the length (256 bits / 32 bytes)
@@ -107,6 +108,8 @@ const MaintenancePage = ({ message, description, onRetry }) => (
 );
 
 function Dashboard() {
+  const navigate = useNavigate();
+
   const [profileData, setProfileData] = useState(null);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [exchange, setExchange] = useState("NSE");
@@ -512,6 +515,19 @@ function Dashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      const response = await apiClient.get(`/api/logout`);
+      localStorage.removeItem('token');
+      navigate('/');
+    } catch (error) {
+      notification.error({
+        message: "Error",
+        description: error.response?.data?.error || "Error in logout",
+      });
+    } 
+  };
+
   useEffect(() => {
     fetchProfileData();
   }, []);
@@ -551,16 +567,23 @@ function Dashboard() {
   return (
     <div className="bg-gray-100 flex items-center justify-center min-h-screen">
       <div className="bg-white rounded-lg shadow-lg p-8 w-3/4 relative">
-        <h1 className="text-3xl font-bold text-center mb-6">
-          Smart Ai Trading
-        </h1>
-        <div className="flex items-center mb-6">
-          <hr className="flex-grow border-t border-dashed border-gray-400" />
-          <p className="mx-4 text-lg text-gray-600 italic">
-            By: Harshil Kaneria
-          </p>
-          <hr className="flex-grow border-t border-dashed border-gray-400" />
-        </div>
+      <div className="relative mb-6">
+      <h1 className="text-3xl font-bold text-center">
+        Smart Ai Trading
+      </h1>
+      <div className="flex items-center justify-center mb-6">
+        <hr className="flex-grow border-t border-dashed border-gray-400" />
+        <p className="mx-4 text-lg text-gray-600 italic">By: Harshil Kaneria</p>
+        <hr className="flex-grow border-t border-dashed border-gray-400" />
+      </div>
+      <Button
+        color="danger" variant="dashed"
+        className="absolute right-0 top-0"
+        onClick={handleLogout}
+      >
+        Logout
+      </Button>
+    </div>
         <div className="">
           <div className="mb-6">
             <div className="flex items-center mb-4 space-x-4">

@@ -1,97 +1,132 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import axios from 'axios';
-import { notification } from 'antd';
+import { Form, Input, Button, notification, Typography, Divider } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import CryptoJS from 'crypto-js';
+// import './Login.css'; // Add any additional styles if needed
 
-const decryptMessage = (encryptedMessage, secretKey=process.env.REACT_APP_API_SECRET_KEY) => {
-    // Ensure the key matches the length (256 bits / 32 bytes)
-    const key = CryptoJS.enc.Utf8.parse(secretKey.padEnd(32).slice(0, 32));
-  
-    // Decode Base64
-    const encryptedBytes = CryptoJS.enc.Base64.parse(encryptedMessage);
-  
-    // Extract IV (first 16 bytes)
-    const iv = CryptoJS.lib.WordArray.create(encryptedBytes.words.slice(0, 4), 16);
-  
-    // Extract ciphertext
-    const ciphertext = CryptoJS.lib.WordArray.create(encryptedBytes.words.slice(4), encryptedBytes.sigBytes - 16);
-  
-    // Decrypt the data
-    const decrypted = CryptoJS.AES.decrypt({ ciphertext }, key, { iv });
-    return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8))
-  };
-  
-  const apiClient = axios.create({
-    baseURL: process.env.REACT_APP_API_BASE_URL,
-  });
-  
-  // Add a response interceptor
-  apiClient.interceptors.response.use(
-    (response) => {
-      // Decrypt the response data
-      if (response.data) {
-        response.data = decryptMessage(response.data);
-      }
-      return response;
-    },
-    (error) => {
-      // Handle any error
-      return Promise.reject(error);
+const { Title, Text } = Typography;
+
+// Utility function for decryption
+const decryptMessage = (encryptedMessage, secretKey = process.env.REACT_APP_API_SECRET_KEY) => {
+  const key = CryptoJS.enc.Utf8.parse(secretKey.padEnd(32).slice(0, 32));
+  const encryptedBytes = CryptoJS.enc.Base64.parse(encryptedMessage);
+  const iv = CryptoJS.lib.WordArray.create(encryptedBytes.words.slice(0, 4), 16);
+  const ciphertext = CryptoJS.lib.WordArray.create(encryptedBytes.words.slice(4), encryptedBytes.sigBytes - 16);
+  const decrypted = CryptoJS.AES.decrypt({ ciphertext }, key, { iv });
+  return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
+};
+
+// Axios instance with interceptor
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_BASE_URL,
+});
+
+apiClient.interceptors.response.use(
+  (response) => {
+    if (response.data) {
+      response.data = decryptMessage(response.data);
     }
-  );
+    return response;
+  },
+  (error) => Promise.reject(error)
+);
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
-
   const navigate = useNavigate();
+  const token = localStorage.getItem('token');
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
+  useEffect(() => {
+    if (token) {
+      navigate('/dashboard');
+    }
+  }, [token, navigate]);
+
+  const handleLogin = async (values) => {
     try {
-      const response = await apiClient.post('/api/login', { email, loginPin: pin });
+      const response = await apiClient.post('/api/login', {
+        email: values.email,
+        loginPin: values.pin,
+      });
       localStorage.setItem('token', response.data.token);
       notification.success({
         message: 'Login Successful',
         description: 'You have successfully logged in!',
       });
-      navigate('/dashboard'); // Redirect to dashboard
+      navigate('/dashboard');
     } catch (err) {
-        notification.error({
-            message: 'Login Failed',
-            description: err.response?.data?.message || 'Unable to login. Please try again.',
-          });
+      notification.error({
+        message: 'Login Failed',
+        description: err.response?.data?.message || 'Unable to login. Please try again.',
+      });
     }
   };
 
   return (
-    <div className="login-container">
-      <h2>Login</h2>
-      <form onSubmit={handleLogin}>
-        <div>
-          <label>Email:</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+    <div className="bg-gray-100 flex items-center justify-center min-h-screen">
+      <div className="bg-white rounded-lg shadow-lg p-8 w-3/4 relative">
+      <div className="relative mb-6">
+      <h1 className="text-3xl font-bold text-center">
+        Smart Ai Trading
+      </h1>
+      <div className="flex items-center justify-center mb-6">
+        <hr className="flex-grow border-t border-dashed border-gray-400" />
+        <p className="mx-4 text-lg text-gray-600 italic">By: Harshil Kaneria</p>
+        <hr className="flex-grow border-t border-dashed border-gray-400" />
+      </div>
+    </div>
+        <div className="login-container">
+          <Title level={4}>Login</Title>
+          <Form
+            layout="vertical"
+            onFinish={handleLogin}
+            autoComplete="off"
+          >
+            <Form.Item
+              label="Email"
+              name="email"
+              rules={[
+                { required: true, message: 'Please enter your email!' },
+                { type: 'email', message: 'Enter a valid email address!' },
+              ]}
+            >
+              <Input placeholder="Enter your email" />
+            </Form.Item>
+            <Form.Item
+              label="PIN"
+              name="pin"
+              rules={[
+                { required: true, message: 'Please enter your PIN!' },
+                { min: 6, message: 'PIN must be at least 6 characters!' },
+                { max: 6, message: 'PIN cannot exceed 6 characters!' },
+              ]}
+            >
+              <Input.Password placeholder="Enter your PIN" />
+            </Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              className="mt-4"
+            >
+              Login
+            </Button>
+          </Form>
         </div>
-        <div>
-          <label>PIN:</label>
-          <input
-            type="password"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            required
-          />
+        <div className="register-note mt-6">
+          <Divider />
+          <Text type="secondary">
+            Don't have an account? Register by contacting us at:
+          </Text>
+          <div className="contact-details mt-2">
+            <Text strong>Call - +91 7622042408 | +91 8160187881</Text>
+            <br />
+            <Text strong>WhatsApp - <a href="https://wa.me/917622042408" target="_blank" rel="noopener noreferrer">7622042408</a></Text>
+            <br />
+            <Text strong>Email - <a href="mailto:harshilkaneria00@gmail.com" target="_blank" rel="noopener noreferrer">harshilkaneria00@gmail.com</a></Text>
+          </div>
         </div>
-        {error && <p className="error">{error}</p>}
-        <button type="submit">Login</button>
-      </form>
+      </div>
     </div>
   );
 };
