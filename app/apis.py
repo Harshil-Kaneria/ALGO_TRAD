@@ -1,4 +1,29 @@
+@app.route('/api/login', methods=['POST'])
+def login_user():
+    data = request.get_json()
+    email = data.get('email')
+    login_pin = data.get('loginPin')
+
+    if not email or not login_pin:
+        return encrypt_message({"message": "Email and PIN are required."}), 400
+
+    # Fetch the user from the database
+    user = UserTable.query.filter_by(email=email).first()
+
+    if not user or user.loginPin != login_pin:
+        return encrypt_message({"message": "Invalid email or PIN."}), 401
+
+    # Generate a new session token
+    new_token = secrets.token_hex(32)
+
+    # Update the user with the new token, invalidating the old session
+    user.session_token = new_token
+    db.session.commit()
+
+    return encrypt_message({"message": "Login successful.", "token": new_token}), 200
+
 @app.route('/api/profile', methods=['GET'])
+@token_required
 def profile():
     kite = get_kite_instance()
     if not kite:
@@ -11,6 +36,7 @@ def profile():
     return encrypt_message({"profile_data": {'isWorking':True}, "market_status": is_market_open()})
 
 @app.route('/api/instruments', methods=['GET'])
+@token_required
 def get_instruments():
     exchange = request.args.get('exchange').upper()
     kite = get_kite_instance()
@@ -21,11 +47,13 @@ def get_instruments():
     return encrypt_message(instruments)
 
 @app.route('/api/gainers')
+@token_required
 def get_gainers_api():
     gainers = get_top_gainers()
     return encrypt_message(gainers)
 
 @app.route('/api/search',methods=['GET'])
+@token_required
 def search_stock():
     try:
         symbol = request.args.get('symbol')
@@ -43,6 +71,7 @@ def search_stock():
         }), 400
 
 @app.route('/api/scrape/<symbol>')
+@token_required
 def scrape_stock(symbol):
     try:
         # Fetch news and analyze sentiment
@@ -61,6 +90,7 @@ def scrape_stock(symbol):
         }), 400
 
 @app.route('/api/signals', methods=['GET'])
+@token_required
 def get_signals():
     try:
         exchange = request.args.get('exchange').upper()
@@ -108,3 +138,14 @@ def get_signals():
             'error': str(e),
             'details': 'Error occurred while processing signal data'
         }), 500
+    
+@app.route('/api/logout', methods=['GET'])
+@token_required
+def logout_user():
+    user = g.get('user')
+    if not user:
+        return encrypt_message({"message": "User not found!"}), 404
+
+    user.session_token = None
+    db.session.commit()
+    return encrypt_message({"message": "Logout successful."}), 200

@@ -36,3 +36,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_babel import Babel
 import random
 import string
+import secrets
+from functools import wraps
+from flask import g

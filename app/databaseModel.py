@@ -6,8 +6,7 @@ class UserTable(db.Model):
     number = db.Column(db.String(15), nullable=False)
     loginPin = db.Column(db.String(6), nullable=False, default=lambda: ''.join(random.choices(string.digits, k=6)))
     type = db.Column(db.String(10), nullable=False, default='isPAID')  # can be 'isVIP' or 'isPAID'
-    createdAt = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updatedAt = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    session_token = db.Column(db.String(255), nullable=True)
 
     def __repr__(self):
         return f'<User {self.name}>'

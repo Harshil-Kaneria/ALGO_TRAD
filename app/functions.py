@@ -1185,4 +1185,27 @@ def generate_stock_analysis(allData=False):
     except Exception as e:
         print(f"Error generating stock analysis: {str(e)}")
         return None
+    
+def validate_token(token):
+    """Validate the session token against the database."""
+    user = UserTable.query.filter_by(session_token=token).first()  # Change `loginPin` to `session_token` if applicable
+    return user
 
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        print("Received Token:", token)
+
+        if not token:
+            print("Token is missing!")
+            return encrypt_message({"message": "Token is missing!"}), 403
+
+        user = validate_token(token)  # Validate the token and get the user
+        if not user:
+            print("Invalid or expired token!")
+            return encrypt_message({"message": "Invalid or expired token!"}), 401
+
+        g.user = user  # Store user in Flask's global object
+        return f(*args, **kwargs)
+    return decorated
