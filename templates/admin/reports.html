@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Reports</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-2" role="navigation">
+            <button
+              class="navbar-toggler"
+              type="button"
+              data-toggle="collapse"
+              data-target="#admin-navbar-collapse"
+              aria-controls="admin-navbar-collapse"
+              aria-expanded="false"
+              aria-label="Toggle navigation"
+            >
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="admin-navbar-collapse">
+              <a class="navbar-brand" href="/admin">Smart AI Trading Admin</a>
+              <ul class="nav navbar-nav mr-auto">
+                <li>
+                  <a class="nav-link" href="/admin/usertable/">User Table</a>
+                </li>
+                <li class="active">
+                  <a class="nav-link" href="/admin/reports/">Reports</a>
+                </li>
+              </ul>
+              <ul class="nav navbar-nav navbar-right">
+                <li>
+                  <a class="nav-link" href="/logout">Logout</a>
+                </li>
+              </ul>
+            </div>
+          </nav>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="alert alert-dismissible fade show mt-3" role="alert">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} text-center">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div style="display: flex; justify-content: space-evenly;">
+            <form action="{{ url_for('reports.generate') }}" method="post" class="mb-3">
+                <input type="hidden" name="allData" value="false">
+                <button type="submit" class="btn btn-outline-success">Generate report best company's</button>
+            </form>
+            <form action="{{ url_for('reports.generate') }}" method="post" class="mb-3">
+                <input type="hidden" name="allData" value="true">
+                <button type="submit" class="btn btn-outline-success">Generate report all company's</button>
+            </form>    
+        </div>
+
+        <!-- List of Reports -->
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>File Name</th>
+                    <th class="d-flex justify-content-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in files %}
+                    <tr>
+                        <td>{{ file }}</td>
+                        <td class="d-flex justify-content-end">
+                            <a href="{{ url_for('reports.download', filename=file) }}" class="btn btn-primary btn-sm">Download</a>&nbsp;&nbsp;
+                            <form action="{{ url_for('reports.delete', filename=file) }}" method="post" style="display:inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

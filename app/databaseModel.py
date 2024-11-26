@@ -1,3 +1,45 @@
+# Custom view for managing reports
+class ReportsView(BaseView):
+    @expose('/')
+    def index(self):
+        reports_dir = os.path.join(current_app.root_path, 'reports')
+        os.makedirs(reports_dir, exist_ok=True)  # Ensure the directory exists
+        files = [f for f in os.listdir(reports_dir) if f.endswith('.xlsx')]
+        return self.render('admin/reports.html', files=files)
+
+    @expose('/download/<filename>')
+    def download(self, filename):
+        reports_dir = os.path.join(current_app.root_path, 'reports')
+        return send_from_directory(reports_dir, filename, as_attachment=True)
+
+    @expose('/delete/<filename>', methods=['POST'])
+    def delete(self, filename):
+        reports_dir = os.path.join(current_app.root_path, 'reports')
+        file_path = os.path.join(reports_dir, filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            flash(f'{filename} deleted successfully.', 'success')
+        else:
+            flash(f'{filename} not found.', 'danger')
+        return self.index()
+
+    @expose('/generate', methods=['POST'])
+    def generate(self):
+        all_data = request.form.get("allData") == "true"
+        try:
+            generate_stock_analysis(allData=all_data)
+            flash("Report generated successfully.", "success")
+        except Exception as e:
+            flash(f"Error generating report: {e}", "danger")
+        return self.index()
+
+    def is_accessible(self):
+        return session.get("admin_logged_in")
+
+    def inaccessible_callback(self, name, **kwargs):
+        flash("Please log in as admin to access the reports.", "danger")
+        return redirect(url_for("login"))
+
 # User table (CRUD)
 class UserTable(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -47,6 +89,7 @@ class UserTableView(ModelView):
 # Add Flask-Admin with custom views
 admin = Admin(app,name="Smart AI Trading Admin",index_view=MyAdminIndexView(), template_mode="bootstrap4")
 admin.add_view(UserTableView(UserTable, db.session))
+admin.add_view(ReportsView(name="Reports", endpoint="reports"))
 admin.add_link(MenuLink(name="Logout", url="/logout"))
 
 # Routes for login/logout

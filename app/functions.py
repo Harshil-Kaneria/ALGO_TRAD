@@ -1081,8 +1081,8 @@ def generate_stock_analysis(allData=False):
         cell_format = None
         percent_format = None
         
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'stock_analysis_{timestamp}.xlsx'
+        timestamp = datetime.now().strftime('%d_%m_%Y')
+        filename = f'reports/stock_analysis_{timestamp}.xlsx'
         
         with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
             # Get workbook object after initializing the writer
