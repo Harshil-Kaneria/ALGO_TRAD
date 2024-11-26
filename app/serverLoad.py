@@ -9,4 +9,4 @@ if args.generate and args.generate.lower() == 'true':
     generate_stock_analysis(allData=all_data)
 else:
     print("Starting backend server...")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000)
