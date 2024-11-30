@@ -73,9 +73,9 @@ const Login = () => {
 
   return (
     <div className="bg-gray-100 flex items-center justify-center min-h-screen">
-      <div className="bg-white rounded-lg shadow-lg p-8 w-3/4 relative">
+      <div className="bg-white rounded-lg shadow-lg p-8 relative">
         <div className="relative mb-6">
-          <h1 className="text-3xl font-bold text-center">Smart Ai Trading</h1>
+          <h1 className="text-3xl font-bold text-center">Smart A! Trading</h1>
           <div className="flex items-center justify-center mb-6">
             <hr className="flex-grow border-t border-dashed border-gray-400" />
             <p className="mx-4 text-lg text-gray-600 italic">
@@ -122,15 +122,15 @@ const Login = () => {
         </div>
 
         <div className="register-note mt-6">
-          <div className="flex items-center justify-center mb-6">
-            <hr className="flex-grow border-t border-dashed border-gray-400" />
+          <hr className="flex-grow border-t border-dashed border-gray-400" />
+          <div className="flex items-center justify-center">
             <Text type="secondary" className="mx-2">
               Don't have an account? Register by contacting us at
             </Text>
-            <hr className="flex-grow border-t border-dashed border-gray-400" />
           </div>
-          <div className="contact-details mt-2 flex justify-between">
-            <Text strong>Call : <a href="tel:+917622042408">+91 7622042408</a> <a href="tel:+918160187881">+91 8160187881</a></Text>
+          <hr className="flex-grow border-t border-dashed border-gray-400  mb-3" />
+          <div className="contact-details mt-2 text-center">
+            <Text strong>Call : <a href="tel:+917622042408">+91 7622042408</a> <a href="tel:+918160187881">+91 8160187881</a></Text><br/>
             <Text strong>
               WhatsApp :{" "}
               <a
@@ -140,7 +140,7 @@ const Login = () => {
               >
                 (+91 7622042408)
               </a>
-            </Text>
+            </Text><br/>
             <Text strong>
               Email :{" "}
               <a

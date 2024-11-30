@@ -569,11 +569,11 @@ function Dashboard() {
       <div className="bg-white rounded-lg shadow-lg p-8 w-3/4 relative">
       <div className="relative mb-6">
       <h1 className="text-3xl font-bold text-center">
-        Smart Ai Trading
+        Smart A! Trading
       </h1>
       <div className="flex items-center justify-center mb-6">
         <hr className="flex-grow border-t border-dashed border-gray-400" />
-        <p className="mx-4 text-lg text-gray-600 italic">By: Harshil Kaneria</p>
+        <p className="mx-4 text-lg text-gray-600 italic">Welcome, {`${profileData?.user?.name}`}</p>
         <hr className="flex-grow border-t border-dashed border-gray-400" />
       </div>
       <Button

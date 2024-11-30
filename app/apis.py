@@ -33,7 +33,18 @@ def profile():
     if profile_data is None:
         return encrypt_message({"message": "Failed to retrieve profile data."}), 500
     
-    return encrypt_message({"profile_data": {'isWorking':True}, "market_status": is_market_open()})
+    user = g.get('user')
+    if not user:
+        return encrypt_message({"message": "User not found!"}), 404
+    
+    if isinstance(user, UserTable):
+        user = {
+            "name": user.name,
+            "email": user.email
+        }
+
+    
+    return encrypt_message({"profile_data": {'isWorking':True,"user":user}, "market_status": is_market_open()})
 
 @app.route('/api/instruments', methods=['GET'])
 @token_required
