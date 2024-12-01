@@ -54,11 +54,11 @@
         <div style="display: flex; justify-content: space-evenly;">
             <form action="{{ url_for('reports.generate') }}" method="post" class="mb-3">
                 <input type="hidden" name="allData" value="false">
-                <button type="submit" class="btn btn-outline-success">Generate report best company's</button>
+                <button type="submit" class="btn btn-outline-success">Generate report of best company's</button>
             </form>
             <form action="{{ url_for('reports.generate') }}" method="post" class="mb-3">
                 <input type="hidden" name="allData" value="true">
-                <button type="submit" class="btn btn-outline-success">Generate report all company's</button>
+                <button type="submit" class="btn btn-outline-success">Generate report of all company's</button>
             </form>    
         </div>
 

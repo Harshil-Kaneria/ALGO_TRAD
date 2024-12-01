@@ -79,6 +79,25 @@ class MyAdminIndexView(AdminIndexView):
 
 # Custom user table view (restrict access to admin)
 class UserTableView(ModelView):
+    column_exclude_list = ["session_token"]
+    form_excluded_columns = ["session_token","loginPin"]
+    column_searchable_list = ["name", "email", "number","type"]
+
+    form_overrides = {
+        'type': SelectField,
+    }
+
+    # Define dropdown choices for the `type` column
+    form_args = {
+        'type': {
+            'choices': [
+                ('isVIP', 'VIP User'),
+                ('isPAID', 'Paid User')
+            ],
+            'label': 'User Type',
+        },
+    }
+
     def is_accessible(self):
         return session.get("admin_logged_in")
 

@@ -115,7 +115,7 @@ const Login = () => {
             >
               <Input.Password placeholder="Enter your PIN" />
             </Form.Item>
-            <Button ghost type="primary" htmlType="submit" block>
+            <Button color="default" variant="solid" htmlType="submit" block>
               Login
             </Button>
           </Form>
