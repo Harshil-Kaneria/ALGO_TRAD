@@ -457,37 +457,18 @@ function Dashboard() {
       const response = await apiClient.get(
         `/api/signals?exchange=${exchange}&symbol=${searchSymbol}&time=${timeInterval}&days=${days}`
       );
-      if (response.data) {
-        console.log("Initial signals:", response.data);
-        setSignals(response.data);
-      }
+      setSignals(response.data.signals);
+      setSearchResult(response.data.stock_info);
     } catch (error) {
       console.error("Error fetching signals:", error);
       notification.error({
         message: "Error",
         description: error.response?.data?.error || "Failed to fetch signals",
       });
-    }finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSearch = async () => {
-    setIsLoading(true);
-    try {
-      const response = await apiClient.get(
-        `/api/search?exchange=${exchange}&symbol=${searchSymbol}`
-      );
-      setSearchResult(response.data);
-    } catch (error) {
-      notification.error({
-        message: "Error",
-        description: error.response?.data?.error || "Error searching stock",
-      });
       setSearchResult(null);
+      setSignals(null);
     }finally {
       setIsLoading(false);
-      handleAnalysisSearch();
     }
   };
 
@@ -590,7 +571,7 @@ function Dashboard() {
               <h2 className="text-2xl font-bold flex-grow">Search Stock</h2>
               <Button
                 type="primary"
-                onClick={handleSearch}
+                onClick={handleAnalysisSearch}
                 className="ml-2"
                 ghost
                 disabled={!exchange || !searchSymbol || !timeInterval || !days}

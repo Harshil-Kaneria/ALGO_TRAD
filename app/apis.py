@@ -63,24 +63,6 @@ def get_gainers_api():
     gainers = get_top_gainers()
     return encrypt_message(gainers)
 
-@app.route('/api/search',methods=['GET'])
-@token_required
-def search_stock():
-    try:
-        symbol = request.args.get('symbol')
-        exchange = request.args.get('exchange')
-        stock_info = get_stock_details(symbol,exchange)
-        if not stock_info:
-            return encrypt_message({'error': f"Unable to fetch details for {symbol}. Please ensure the symbol is correct and try again."}), 404
-        
-        return encrypt_message(stock_info)
-    
-    except Exception as e:
-        print(f"Error searching stock {symbol}: {e}")
-        return encrypt_message({
-            'error': f"Error searching stock {symbol}: {str(e)}"
-        }), 400
-
 @app.route('/api/scrape/<symbol>')
 @token_required
 def scrape_stock(symbol):
@@ -107,6 +89,11 @@ def get_signals():
         exchange = request.args.get('exchange').upper()
         symbol = request.args.get('symbol')
         time = request.args.get('time')
+
+        stock_info = get_stock_details(symbol,exchange)
+        if not stock_info:
+            return encrypt_message({'error': f"Unable to fetch details for {symbol}. Please ensure the symbol is correct and try again."}), 404
+
         
         # userdays = request.args.get('days')
         # try:
@@ -126,7 +113,7 @@ def get_signals():
             return encrypt_message({'error': f'No historical data available for {symbol}'}), 404
             
         # Calculate indicators
-        data = calculate_technical_indicators(data)
+        # data = calculate_technical_indicators(data)
         
         # Train models
         regression_model = train_regression_model(data)
@@ -141,7 +128,7 @@ def get_signals():
         # Convert numpy values to native types
         signals = convert_to_native_types(signals)
         
-        return encrypt_message(signals)
+        return encrypt_message({"signals":signals,"stock_info":stock_info})
         
     except Exception as e:
         print(f"Error in get_signals for {symbol}: {str(e)}")

@@ -956,7 +956,7 @@ def generate_stock_analysis(allData=False):
                 if data.empty:
                     continue
                     
-                data = calculate_technical_indicators(data)
+                # data = calculate_technical_indicators(data)
                 regression_model = train_regression_model(data)
                 pytorch_model = train_pytorch_model(data)
                 signals = generate_signals(data, regression_model, pytorch_model)
