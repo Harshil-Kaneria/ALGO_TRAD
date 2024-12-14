@@ -583,146 +583,125 @@ def generate_signals(data, regression_model, pytorch_model):
         latest_data = data.iloc[-1]
 
         kite = get_kite_instance()
-        
+
         # Extract symbol correctly from the data
         try:
-            # First try to get symbol from the index name if it's a string
             if isinstance(latest_data.name, str):
                 symbol = latest_data.name.split(':')[-1]
             else:
-                # If index is a timestamp, try to get symbol from the data columns or parameters
-                # You might need to pass the symbol separately to this function
                 symbol = data.columns[0].split(':')[0] if ':' in data.columns[0] else None
-                
+
             if not symbol:
-                # Fallback: try to get symbol from the first column name
                 symbol = data.columns[0].split('_')[0] if '_' in data.columns[0] else data.columns[0]
-            
+
             symbol_with_exchange = f"NSE:{symbol}"
-            
+
             # Try to get real-time price
             ltp_data = kite.ltp([symbol_with_exchange])
             current_price = ltp_data[symbol_with_exchange]['last_price']
-            
+
         except Exception as price_error:
             print(f"Error getting real-time price: {price_error}")
-            # Fallback to the last price from historical data
             current_price = float(latest_data['Close'])
             print(f"Using historical price: {current_price}")
-        
+
         # Calculate technical indicators and patterns
         pattern_detector = CandlePatternDetector()
         patterns = pattern_detector.detect_patterns(data)
         sentiment = analyze_market_sentiment(data)
-        
+
         # Enhanced prediction logic
-        predictor = EnhancedPredictor(data)
-        prediction = predictor.get_prediction()
-        
-        # Get 5-day forecast
+        predictor = EnhancedPredictor(data)  # Assuming EnhancedPredictor is already defined
+
+        # Forecast days
         forecast_days = 5
         forecasted_prices = []
         forecast_dates = []
+        
+        # Initialize current features based on the latest data
         current_features = np.array([
-            # Price and volume-related features 
-            latest_data['SMA_20'], 
-            latest_data['SMA_50'], 
+            latest_data['SMA_20'],
+            latest_data['SMA_50'],
             latest_data['Volume_MA'],
-
-            # Overlap Studies
-            latest_data['BBANDS_Upper'], 
-            latest_data['BBANDS_Middle'], 
-            latest_data['BBANDS_Lower'], 
-            latest_data['DEMA'], 
-            latest_data['EMA'], 
-            latest_data['HT_TRENDLINE'], 
-            latest_data['KAMA'], 
-            latest_data['MA'], 
-            latest_data['MIDPOINT'], 
-            latest_data['MIDPRICE'], 
-            latest_data['SAR'], 
-            latest_data['SAREXT'], 
-            latest_data['T3'], 
-            latest_data['TEMA'], 
-            latest_data['TRIMA'], 
+            latest_data['BBANDS_Upper'],
+            latest_data['BBANDS_Middle'],
+            latest_data['BBANDS_Lower'],
+            latest_data['DEMA'],
+            latest_data['EMA'],
+            latest_data['HT_TRENDLINE'],
+            latest_data['KAMA'],
+            latest_data['MA'],
+            latest_data['MIDPOINT'],
+            latest_data['MIDPRICE'],
+            latest_data['SAR'],
+            latest_data['SAREXT'],
+            latest_data['T3'],
+            latest_data['TEMA'],
+            latest_data['TRIMA'],
             latest_data['WMA'],
-
-            # Momentum Indicators
-            latest_data['ADX'], 
-            latest_data['ADXR'], 
-            latest_data['APO'], 
-            latest_data['AROON_Down'], 
-            latest_data['AROON_Up'], 
-            latest_data['AROONOSC'], 
-            latest_data['BOP'], 
-            latest_data['CCI'], 
-            latest_data['CMO'], 
-            latest_data['DX'], 
-            latest_data['MACD'], 
-            latest_data['MACD_Signal'], 
-            latest_data['MACD_Hist'], 
-            latest_data['MFI'], 
-            latest_data['MINUS_DI'], 
-            latest_data['MINUS_DM'], 
-            latest_data['PLUS_DI'], 
-            latest_data['PLUS_DM'], 
-            latest_data['PPO'], 
-            latest_data['ROC'], 
-            latest_data['ROCP'], 
-            latest_data['ROCR'], 
-            latest_data['ROCR100'], 
-            latest_data['RSI'], 
-            latest_data['STOCH_K'], 
-            latest_data['STOCH_D'], 
-            latest_data['TRIX'], 
-            latest_data['ULTOSC'], 
+            latest_data['ADX'],
+            latest_data['ADXR'],
+            latest_data['APO'],
+            latest_data['AROON_Down'],
+            latest_data['AROON_Up'],
+            latest_data['AROONOSC'],
+            latest_data['BOP'],
+            latest_data['CCI'],
+            latest_data['CMO'],
+            latest_data['DX'],
+            latest_data['MACD'],
+            latest_data['MACD_Signal'],
+            latest_data['MACD_Hist'],
+            latest_data['MFI'],
+            latest_data['MINUS_DI'],
+            latest_data['MINUS_DM'],
+            latest_data['PLUS_DI'],
+            latest_data['PLUS_DM'],
+            latest_data['PPO'],
+            latest_data['ROC'],
+            latest_data['ROCP'],
+            latest_data['ROCR'],
+            latest_data['ROCR100'],
+            latest_data['RSI'],
+            latest_data['STOCH_K'],
+            latest_data['STOCH_D'],
+            latest_data['TRIX'],
+            latest_data['ULTOSC'],
             latest_data['WILLR'],
-
-            # Volume Indicators
-            latest_data['OBV'], 
-            latest_data['ADL'], 
+            latest_data['OBV'],
+            latest_data['ADL'],
             latest_data['ADOSC'],
-
-            # Volatility Indicators
-            latest_data['ATR'], 
-            latest_data['NATR'], 
+            latest_data['ATR'],
+            latest_data['NATR'],
             latest_data['TRANGE'],
-
-            # Price Transform
-            latest_data['AVGPRICE'], 
-            latest_data['MEDPRICE'], 
-            latest_data['TYPPRICE'], 
+            latest_data['AVGPRICE'],
+            latest_data['MEDPRICE'],
+            latest_data['TYPPRICE'],
             latest_data['WCLPRICE'],
-
-            # Cycle Indicators
-            latest_data['HT_DCPERIOD'], 
-            latest_data['HT_DCPHASE'], 
-            latest_data['HT_PHASOR_InPhase'], 
-            latest_data['HT_PHASOR_Quadrature'], 
-            latest_data['HT_SINE_Sine'], 
-            latest_data['HT_SINE_Lead'], 
+            latest_data['HT_DCPERIOD'],
+            latest_data['HT_DCPHASE'],
+            latest_data['HT_PHASOR_InPhase'],
+            latest_data['HT_PHASOR_Quadrature'],
+            latest_data['HT_SINE_Sine'],
+            latest_data['HT_SINE_Lead'],
             latest_data['HT_TRENDMODE'],
-
-            # Statistic Functions
-            latest_data['BETA'], 
-            latest_data['CORREL'], 
-            latest_data['LINEARREG'], 
-            latest_data['LINEARREG_ANGLE'], 
-            latest_data['LINEARREG_INTERCEPT'], 
-            latest_data['LINEARREG_SLOPE'], 
-            latest_data['STDDEV'], 
-            latest_data['TSF'], 
+            latest_data['BETA'],
+            latest_data['CORREL'],
+            latest_data['LINEARREG'],
+            latest_data['LINEARREG_ANGLE'],
+            latest_data['LINEARREG_INTERCEPT'],
+            latest_data['LINEARREG_SLOPE'],
+            latest_data['STDDEV'],
+            latest_data['TSF'],
             latest_data['VAR'],
-
-            # Additional Momentum
             latest_data['MOM']
         ]).reshape(1, -1)
 
-        
-        # Generate forecast for next 5 days
         for i in range(forecast_days):
-            # Get prediction for next day
-            predicted_price = float(regression_model.predict(current_features)[0])
+            # Get prediction for next day using the current features
+            prediction = predictor.get_prediction()  # Pass current features to the predictor
+
+            predicted_price = prediction.get('predicted_price', 0)  # Get predicted price
             forecasted_prices.append(predicted_price)
             
             # Calculate date for this forecast
@@ -730,15 +709,12 @@ def generate_signals(data, regression_model, pytorch_model):
             forecast_dates.append(forecast_date)
             
             # Update features for next prediction
-            # Simple update using moving average
             current_features[0][0] = (current_features[0][0] * 19 + predicted_price) / 20  # Update SMA_20
             current_features[0][1] = (current_features[0][1] * 49 + predicted_price) / 50  # Update SMA_50
-            # Keep volume MA constant or update based on historical average
-            
-        # Calculate profit/loss percentages for each forecasted day
+
         profit_loss_pcts = [((price - current_price) / current_price) * 100 
-                           for price in forecasted_prices]
-        
+                   for price in forecasted_prices]
+
         # Create forecast dictionary
         forecast_data = [{
             'date': date,

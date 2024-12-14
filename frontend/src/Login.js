@@ -3,6 +3,7 @@ import axios from "axios";
 import { Form, Input, Button, notification, Typography } from "antd";
 import { useNavigate } from "react-router-dom";
 import CryptoJS from "crypto-js";
+import { LockOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -79,7 +80,7 @@ const Login = () => {
           <div className="flex items-center justify-center mb-6">
             <hr className="flex-grow border-t border-dashed border-gray-400" />
             <p className="mx-4 text-lg text-gray-600 italic">
-              By: Harshil Kaneria
+              <LockOutlined />
             </p>
             <hr className="flex-grow border-t border-dashed border-gray-400" />
           </div>
@@ -138,7 +139,7 @@ const Login = () => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                (+91 7622042408)
+                +91 7622042408
               </a>
             </Text><br/>
             <Text strong>

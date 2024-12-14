@@ -77,7 +77,6 @@ def scrape_stock(symbol):
         })
     
     except Exception as e:
-        print(f"Error scraping stock {symbol}: {e}")
         return encrypt_message({
             'error': f"Error scraping stock {symbol}: {str(e)}"
         }), 400
@@ -128,10 +127,10 @@ def get_signals():
         # Convert numpy values to native types
         signals = convert_to_native_types(signals)
         
-        return encrypt_message({"signals":signals,"stock_info":stock_info})
+        data = data.to_json(orient='records')
+        return encrypt_message({"signals":signals,"stock_info":stock_info,"data":data})
         
     except Exception as e:
-        print(f"Error in get_signals for {symbol}: {str(e)}")
         return encrypt_message({
             'error': str(e),
             'details': 'Error occurred while processing signal data'

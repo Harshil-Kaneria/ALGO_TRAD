@@ -457,10 +457,11 @@ function Dashboard() {
       const response = await apiClient.get(
         `/api/signals?exchange=${exchange}&symbol=${searchSymbol}&time=${timeInterval}&days=${days}`
       );
+      console.log("response - data",response.data.signals)
       setSignals(response.data.signals);
       setSearchResult(response.data.stock_info);
     } catch (error) {
-      console.error("Error fetching signals:", error);
+      console.log("Error fetching signals:", error);
       notification.error({
         message: "Error",
         description: error.response?.data?.error || "Failed to fetch signals",
