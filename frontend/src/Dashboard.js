@@ -216,29 +216,6 @@ function Dashboard() {
             </p>
           </Card>
 
-          {/* Forecast Section */}
-          <Card
-            type="inner"
-            title="Forecast (Day 1 - Day 5)"
-            className="bg-gray-50"
-          >
-            <div className="">
-              {signals.forecast.daily_forecasts.map((forecast, index) => (
-                <p key={index}>
-                  <strong>Day {index + 1}:</strong>{" "}
-                  {forecast.predicted_price.toFixed(2)}
-                  <span
-                    className={`text-${
-                      forecast.profit_loss_pct > 0 ? "green" : "red"
-                    }-500`}
-                  >
-                    ({forecast.profit_loss_pct.toFixed(2)}%)
-                  </span>
-                </p>
-              ))}
-            </div>
-          </Card>
-
           {/* Risk Management */}
           {signals.risk_levels && (
             <Card type="inner" title="Risk Management" className="bg-gray-50">
@@ -266,8 +243,8 @@ function Dashboard() {
               <strong>MACD:</strong> {signals.indicators.macd.value.toFixed(2)}{" "}
               (Signal: {signals.indicators.macd.signal.toFixed(2)})
             </p>
-            <p>
-              <strong>Bollinger Bands:</strong>
+            <p className="text-center">
+              <hr/>Bollinger Bands<hr/>
             </p>
             <ul>
               <li>
@@ -457,7 +434,7 @@ function Dashboard() {
       const response = await apiClient.get(
         `/api/signals?exchange=${exchange}&symbol=${searchSymbol}&time=${timeInterval}&days=${days}`
       );
-      console.log("response - data",response.data.signals)
+      console.log("response - data",response.data)
       setSignals(response.data.signals);
       setSearchResult(response.data.stock_info);
     } catch (error) {
@@ -544,6 +521,21 @@ function Dashboard() {
         </div>
       </div>
     );
+  }
+
+  let pivotPoints = []
+  if(searchResult){
+    pivotPoints = [
+      { label: 'PP', value: searchResult.pivot_points.pp, color: '#108ee9' },
+      { label: 'Price', value: searchResult.price, color: '#f50' },
+      { label: 'R1', value: searchResult.pivot_points.r1, color: 'red' },
+      { label: 'R2', value: searchResult.pivot_points.r2, color: 'red' },
+      { label: 'R3', value: searchResult.pivot_points.r3, color: 'red' },
+      { label: 'S1', value: searchResult.pivot_points.s1, color: 'green' },
+      { label: 'S2', value: searchResult.pivot_points.s2, color: 'green' },
+      { label: 'S3', value: searchResult.pivot_points.s3, color: 'green' },
+    ];
+    pivotPoints.sort((a, b) => a.value - b.value);
   }
   
   return (
@@ -763,14 +755,11 @@ function Dashboard() {
                 </p>
                 <br />
                 <div className="flex justify-center">
-                  <Tag color="blue">Position: {searchResult.position}</Tag>
-                  <Tag color="blue">PP: {searchResult.pivot_points.pp}</Tag>
-                  <Tag color="red">R1: {searchResult.pivot_points.r1}</Tag>
-                  <Tag color="red">R2: {searchResult.pivot_points.r2}</Tag>
-                  <Tag color="red">R3: {searchResult.pivot_points.r3}</Tag>
-                  <Tag color="green">S1: {searchResult.pivot_points.s1}</Tag>
-                  <Tag color="green">S2: {searchResult.pivot_points.s2}</Tag>
-                  <Tag color="green">S3: {searchResult.pivot_points.s3}</Tag>
+                {pivotPoints.map(tag => (
+                    <Tag color={tag.color} key={tag.label}>
+                      {tag.label}: {tag.value}
+                    </Tag>
+                  ))}
                 </div>
               </Card>
             )}

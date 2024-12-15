@@ -611,116 +611,8 @@ def generate_signals(data, regression_model, pytorch_model):
         sentiment = analyze_market_sentiment(data)
 
         # Enhanced prediction logic
-        predictor = EnhancedPredictor(data)  # Assuming EnhancedPredictor is already defined
-
-        # Forecast days
-        forecast_days = 5
-        forecasted_prices = []
-        forecast_dates = []
-        
-        # Initialize current features based on the latest data
-        current_features = np.array([
-            latest_data['SMA_20'],
-            latest_data['SMA_50'],
-            latest_data['Volume_MA'],
-            latest_data['BBANDS_Upper'],
-            latest_data['BBANDS_Middle'],
-            latest_data['BBANDS_Lower'],
-            latest_data['DEMA'],
-            latest_data['EMA'],
-            latest_data['HT_TRENDLINE'],
-            latest_data['KAMA'],
-            latest_data['MA'],
-            latest_data['MIDPOINT'],
-            latest_data['MIDPRICE'],
-            latest_data['SAR'],
-            latest_data['SAREXT'],
-            latest_data['T3'],
-            latest_data['TEMA'],
-            latest_data['TRIMA'],
-            latest_data['WMA'],
-            latest_data['ADX'],
-            latest_data['ADXR'],
-            latest_data['APO'],
-            latest_data['AROON_Down'],
-            latest_data['AROON_Up'],
-            latest_data['AROONOSC'],
-            latest_data['BOP'],
-            latest_data['CCI'],
-            latest_data['CMO'],
-            latest_data['DX'],
-            latest_data['MACD'],
-            latest_data['MACD_Signal'],
-            latest_data['MACD_Hist'],
-            latest_data['MFI'],
-            latest_data['MINUS_DI'],
-            latest_data['MINUS_DM'],
-            latest_data['PLUS_DI'],
-            latest_data['PLUS_DM'],
-            latest_data['PPO'],
-            latest_data['ROC'],
-            latest_data['ROCP'],
-            latest_data['ROCR'],
-            latest_data['ROCR100'],
-            latest_data['RSI'],
-            latest_data['STOCH_K'],
-            latest_data['STOCH_D'],
-            latest_data['TRIX'],
-            latest_data['ULTOSC'],
-            latest_data['WILLR'],
-            latest_data['OBV'],
-            latest_data['ADL'],
-            latest_data['ADOSC'],
-            latest_data['ATR'],
-            latest_data['NATR'],
-            latest_data['TRANGE'],
-            latest_data['AVGPRICE'],
-            latest_data['MEDPRICE'],
-            latest_data['TYPPRICE'],
-            latest_data['WCLPRICE'],
-            latest_data['HT_DCPERIOD'],
-            latest_data['HT_DCPHASE'],
-            latest_data['HT_PHASOR_InPhase'],
-            latest_data['HT_PHASOR_Quadrature'],
-            latest_data['HT_SINE_Sine'],
-            latest_data['HT_SINE_Lead'],
-            latest_data['HT_TRENDMODE'],
-            latest_data['BETA'],
-            latest_data['CORREL'],
-            latest_data['LINEARREG'],
-            latest_data['LINEARREG_ANGLE'],
-            latest_data['LINEARREG_INTERCEPT'],
-            latest_data['LINEARREG_SLOPE'],
-            latest_data['STDDEV'],
-            latest_data['TSF'],
-            latest_data['VAR'],
-            latest_data['MOM']
-        ]).reshape(1, -1)
-
-        for i in range(forecast_days):
-            # Get prediction for next day using the current features
-            prediction = predictor.get_prediction()  # Pass current features to the predictor
-
-            predicted_price = prediction.get('predicted_price', 0)  # Get predicted price
-            forecasted_prices.append(predicted_price)
-            
-            # Calculate date for this forecast
-            forecast_date = (datetime.now() + timedelta(days=i+1)).strftime('%Y-%m-%d')
-            forecast_dates.append(forecast_date)
-            
-            # Update features for next prediction
-            current_features[0][0] = (current_features[0][0] * 19 + predicted_price) / 20  # Update SMA_20
-            current_features[0][1] = (current_features[0][1] * 49 + predicted_price) / 50  # Update SMA_50
-
-        profit_loss_pcts = [((price - current_price) / current_price) * 100 
-                   for price in forecasted_prices]
-
-        # Create forecast dictionary
-        forecast_data = [{
-            'date': date,
-            'predicted_price': round(price, 2),
-            'profit_loss_pct': round(pct, 2)
-        } for date, price, pct in zip(forecast_dates, forecasted_prices, profit_loss_pcts)]
+        predictor = EnhancedPredictor(data)
+        prediction = predictor.get_prediction()
 
         # Add forecast data to signals
         signals = {
@@ -770,13 +662,6 @@ def generate_signals(data, regression_model, pytorch_model):
             "momentum": {
                 "value": float(latest_data['MOM']),
                 "roc": float(latest_data['ROC'])
-            },
-            "forecast": {
-                'current_price': current_price,
-                'daily_forecasts': forecast_data,
-                'avg_5day_return': round(sum(profit_loss_pcts) / len(profit_loss_pcts), 2),
-                'max_profit_potential': round(max(profit_loss_pcts), 2),
-                'min_profit_potential': round(min(profit_loss_pcts), 2)
             }
         }
         
@@ -819,15 +704,28 @@ def get_stock_details(symbol,exchange):
         
         # Current price
         current_price = info.get('currentPrice', hist.iloc[-1]['Close'])
-        
+
         # Determine position relative to pivot points
         position = "At Pivot Point"
-        for level in ['s3', 's2', 's1', 'pp', 'r1', 'r2', 'r3']:
-            if current_price < pivot_points[level]:
-                position = f"Between {level.upper()} and {('r1' if level == 'pp' else 'pp' if level == 's1' else f's{int(level[1])+1}').upper()}"
+
+        # Iterate through the levels in the correct order
+        pivot_levels = ['s3', 's2', 's1', 'pp', 'r1', 'r2', 'r3']
+        for i in range(1, len(pivot_levels)):
+            lower_level = pivot_levels[i-1]
+            upper_level = pivot_levels[i]
+            
+            # Check if the price is between the two levels
+            if pivot_points[lower_level] <= current_price < pivot_points[upper_level]:
+                position = f"Between {lower_level.upper()} and {upper_level.upper()}"
                 break
+
+        # If current_price is above R3
         if current_price > pivot_points['r3']:
             position = "Above R3"
+
+        # If current_price is below S3
+        elif current_price < pivot_points['s3']:
+            position = "Below S3"
         
         change_percentage = ((current_price - hist.iloc[-2]['Close']) / hist.iloc[-2]['Close']) * 100
 
