@@ -136,6 +136,37 @@ def get_signals():
             'details': 'Error occurred while processing signal data'
         }), 500
     
+
+@app.route('/api/test', methods=['GET'])
+def get_signals_test():
+    try:
+        exchange = 'NSE'
+        symbol = 'ASIANPAINT'
+        time = '1d'
+
+        stock_info = get_stock_details(symbol, exchange)
+        if not stock_info:
+            return {'error': f"Unable to fetch details for {symbol}. Please ensure the symbol is correct and try again."}, 404
+
+        interval, days = get_time_frame_settings(time)
+        effective_days = days
+
+        data = get_historical_data(symbol, exchange, interval, effective_days)
+        if data.empty:
+            return {'error': f'No historical data available for {symbol}'}, 404
+        
+        # Convert the DataFrame to JSON format
+        data = data.to_dict(orient='records')
+        
+        return jsonify({'data': data}), 200  # Ensure you're returning the data with a success code (200)
+
+    except Exception as e:
+        return {
+            'error': str(e),
+            'details': 'Error occurred while processing signal data'
+        }, 500
+  
+
 @app.route('/api/logout', methods=['GET'])
 @token_required
 def logout_user():
