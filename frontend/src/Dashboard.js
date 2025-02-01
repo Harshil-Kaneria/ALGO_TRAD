@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import CryptoJS from 'crypto-js';
-import GainersTable from "./GainersTable";
+import CryptoJS from "crypto-js";
 import {
   Card,
   Tag,
@@ -12,11 +11,14 @@ import {
   Select,
   Slider,
   Layout,
-  Result
+  Result,
 } from "antd";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 
-const decryptMessage = (encryptedMessage, secretKey=process.env.REACT_APP_API_SECRET_KEY) => {
+const decryptMessage = (
+  encryptedMessage,
+  secretKey = process.env.REACT_APP_API_SECRET_KEY
+) => {
   // Ensure the key matches the length (256 bits / 32 bytes)
   const key = CryptoJS.enc.Utf8.parse(secretKey.padEnd(32).slice(0, 32));
 
@@ -24,14 +26,20 @@ const decryptMessage = (encryptedMessage, secretKey=process.env.REACT_APP_API_SE
   const encryptedBytes = CryptoJS.enc.Base64.parse(encryptedMessage);
 
   // Extract IV (first 16 bytes)
-  const iv = CryptoJS.lib.WordArray.create(encryptedBytes.words.slice(0, 4), 16);
+  const iv = CryptoJS.lib.WordArray.create(
+    encryptedBytes.words.slice(0, 4),
+    16
+  );
 
   // Extract ciphertext
-  const ciphertext = CryptoJS.lib.WordArray.create(encryptedBytes.words.slice(4), encryptedBytes.sigBytes - 16);
+  const ciphertext = CryptoJS.lib.WordArray.create(
+    encryptedBytes.words.slice(4),
+    encryptedBytes.sigBytes - 16
+  );
 
   // Decrypt the data
   const decrypted = CryptoJS.AES.decrypt({ ciphertext }, key, { iv });
-  return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8))
+  return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
 };
 
 const apiClient = axios.create({
@@ -40,9 +48,9 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (token) {
-      config.headers['Authorization'] = token;
+      config.headers["Authorization"] = token;
     }
     return config;
   },
@@ -61,19 +69,18 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-
     if (error.response && error.response.status === 401) {
       // Remove token from localStorage
-      localStorage.removeItem('token');
+      localStorage.removeItem("token");
 
       // Show notification
       notification.error({
-        message: 'Session Expired',
-        description: 'Your session has expired. Please log in again.',
+        message: "Session Expired",
+        description: "Your session has expired. Please log in again.",
       });
 
       // Redirect to login page
-      window.location.href = '/'; // Use this in non-React hooks contexts
+      window.location.href = "/"; // Use this in non-React hooks contexts
     }
 
     // Handle any error
@@ -115,18 +122,12 @@ function Dashboard() {
   const [exchange, setExchange] = useState("NSE");
   const [timeInterval, setTimeInterval] = useState("1d");
   const [instruments, setInstruments] = useState([]);
-  const [gainers, setGainers] = useState([]);
-  const [selectedGainer, setSelectedGainer] = useState(null);
-  const [news, setNews] = useState([]);
-  const [sentiment, setSentiment] = useState([]);
-  const [isScrapingStarted, setIsScrapingStarted] = useState(false);
   const [searchSymbol, setSearchSymbol] = useState("");
   const [searchResult, setSearchResult] = useState(null);
-  const [isSearchScrapingStarted, setIsSearchScrapingStarted] = useState(false);
   const [searchOptions, setSearchOptions] = useState([]);
   const [signals, setSignals] = useState(null);
-  const [days, setDays] = React.useState(2000);
-  const [maxDays, setMaxDays] = React.useState(2000);
+  const [days, setDays] = useState(2000);
+  const [maxDays, setMaxDays] = useState(2000);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -244,7 +245,9 @@ function Dashboard() {
               (Signal: {signals.indicators.macd.signal.toFixed(2)})
             </p>
             <p className="text-center">
-              <hr/>Bollinger Bands<hr/>
+              <hr />
+              Bollinger Bands
+              <hr />
             </p>
             <ul>
               <li>
@@ -361,9 +364,7 @@ function Dashboard() {
   const fetchProfileData = async () => {
     setIsLoading(true);
     try {
-      let response = await apiClient.get(
-        `/api/profile`
-      );
+      let response = await apiClient.get(`/api/profile`);
       setProfileData(response.data.profile_data);
       setIsMarketOpen(response.data.market_status);
       if (response.data.market_status === false) {
@@ -373,7 +374,8 @@ function Dashboard() {
         });
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Service is temporarily unavailable.";
+      const errorMessage =
+        error.response?.data?.message || "Service is temporarily unavailable.";
       setError({ message: "Service Unavailable", description: errorMessage });
       setIsLoading(false);
     }
@@ -390,40 +392,8 @@ function Dashboard() {
       handleSearchInput("");
     } catch (error) {
       console.error("Error fetching instruments:", error);
-    }finally {
+    } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchGainers = async () => {
-    setIsLoading(true);
-    try {
-      const response = await apiClient.get(
-        `/api/gainers`
-      );
-      setGainers(response.data);
-    } catch (error) {
-      console.error("Error fetching gainers:", error);
-    }finally {
-      setIsLoading(false);
-    }
-  };
-
-  const startScraping = async (symbol) => {
-    setIsLoading(true);
-    setIsScrapingStarted(true);
-    setSelectedGainer(symbol);
-    try {
-      const response = await apiClient.get(
-        `/api/scrape/${symbol}`
-      );
-      setNews(response.data.news);
-      setSentiment(response.data.sentiment);
-    } catch (error) {
-      console.error("Error scraping data:", error);
-    }finally {
-      setIsLoading(false);
-      setIsScrapingStarted(false);
     }
   };
 
@@ -434,7 +404,7 @@ function Dashboard() {
       const response = await apiClient.get(
         `/api/signals?exchange=${exchange}&symbol=${searchSymbol}&time=${timeInterval}&days=${days}`
       );
-      console.log("response - data",response.data)
+      console.log("response - data", response.data);
       setSignals(response.data.signals);
       setSearchResult(response.data.stock_info);
     } catch (error) {
@@ -445,31 +415,7 @@ function Dashboard() {
       });
       setSearchResult(null);
       setSignals(null);
-    }finally {
-      setIsLoading(false);
-    }
-  };
-
-  const startSearchScraping = async () => {
-    setIsLoading(true);
-    if (isSearchScrapingStarted) return;
-    setIsSearchScrapingStarted(true);
-    try {
-      const response = await apiClient.get(
-        `/api/scrape/${searchResult.symbol}`
-      );
-      setSearchResult((prevState) => ({
-        ...prevState,
-        news: response.data.news,
-        sentiment: response.data.sentiment,
-      }));
-    } catch (error) {
-      notification.error({
-        message: "Error",
-        description: error.response?.data?.error || "Error scraping search data",
-      });
     } finally {
-      setIsSearchScrapingStarted(false);
       setIsLoading(false);
     }
   };
@@ -477,14 +423,14 @@ function Dashboard() {
   const handleLogout = async () => {
     try {
       const response = await apiClient.get(`/api/logout`);
-      localStorage.removeItem('token');
-      navigate('/');
+      localStorage.removeItem("token");
+      navigate("/");
     } catch (error) {
       notification.error({
         message: "Error",
         description: error.response?.data?.error || "Error in logout",
       });
-    } 
+    }
   };
 
   useEffect(() => {
@@ -516,50 +462,55 @@ function Dashboard() {
       <div className="fixed inset-0 bg-gray-100 bg-opacity-90 flex flex-col justify-center items-center z-50 backdrop-blur-sm">
         <div className="flex flex-col items-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 border-solid border-opacity-70 mb-6"></div>
-          <h1 className="text-2xl font-semibold text-gray-700">Loading, please wait...</h1>
-          <p className="text-gray-500 mt-2">We’re fetching the latest data for you.</p>
+          <h1 className="text-2xl font-semibold text-gray-700">
+            Loading, please wait...
+          </h1>
+          <p className="text-gray-500 mt-2">
+            We’re fetching the latest data for you.
+          </p>
         </div>
       </div>
     );
   }
 
-  let pivotPoints = []
-  if(searchResult){
+  let pivotPoints = [];
+  if (searchResult) {
     pivotPoints = [
-      { label: 'PP', value: searchResult.pivot_points.pp, color: '#108ee9' },
-      { label: 'Price', value: searchResult.price, color: '#f50' },
-      { label: 'R1', value: searchResult.pivot_points.r1, color: 'red' },
-      { label: 'R2', value: searchResult.pivot_points.r2, color: 'red' },
-      { label: 'R3', value: searchResult.pivot_points.r3, color: 'red' },
-      { label: 'S1', value: searchResult.pivot_points.s1, color: 'green' },
-      { label: 'S2', value: searchResult.pivot_points.s2, color: 'green' },
-      { label: 'S3', value: searchResult.pivot_points.s3, color: 'green' },
+      { label: "PP", value: searchResult.pivot_points.pp, color: "#108ee9" },
+      { label: "Price", value: searchResult.price, color: "#f50" },
+      { label: "R1", value: searchResult.pivot_points.r1, color: "red" },
+      { label: "R2", value: searchResult.pivot_points.r2, color: "red" },
+      { label: "R3", value: searchResult.pivot_points.r3, color: "red" },
+      { label: "S1", value: searchResult.pivot_points.s1, color: "green" },
+      { label: "S2", value: searchResult.pivot_points.s2, color: "green" },
+      { label: "S3", value: searchResult.pivot_points.s3, color: "green" },
     ];
     pivotPoints.sort((a, b) => a.value - b.value);
   }
-  
+
   return (
     <div className="bg-gray-100 flex items-center justify-center min-h-screen">
       <div className="bg-white rounded-lg shadow-lg p-8 w-3/4 relative">
-      <div className="relative mb-6">
-      <h1 className="text-3xl font-bold text-center">
-        Smart A! Trading
-      </h1>
-      <div className="flex items-center justify-center mb-6">
-        <hr className="flex-grow border-t border-dashed border-gray-400" />
-        <p className="mx-4 text-lg text-gray-600 italic">Welcome, {`${profileData?.user?.name}`}</p>
-        <hr className="flex-grow border-t border-dashed border-gray-400" />
-      </div>
-      <Button
-        color="danger" variant="dashed"
-        className="absolute right-0 top-0"
-        onClick={handleLogout}
-      >
-        Logout
-      </Button>
-    </div>
+        <div className="relative">
+          <h1 className="text-3xl font-bold text-center">Smart A! Trading</h1>
+          <div className="flex items-center justify-center">
+            <hr className="flex-grow border-t border-dashed border-gray-400" />
+            <p className="mx-4 text-lg text-gray-600 italic">
+              Welcome, {`${profileData?.user?.name}`}
+            </p>
+            <hr className="flex-grow border-t border-dashed border-gray-400" />
+          </div>
+          <Button
+            color="danger"
+            variant="dashed"
+            className="absolute right-0 top-0"
+            onClick={handleLogout}
+          >
+            Logout
+          </Button>
+        </div>
         <div className="">
-          <div className="mb-6">
+          <div className="">
             <div className="flex items-center mb-4 space-x-4">
               <h2 className="text-2xl font-bold flex-grow">Search Stock</h2>
               <Button
@@ -675,18 +626,25 @@ function Dashboard() {
                 className="mb-4"
                 title={`${searchResult.company} (${searchResult.symbol})`}
                 extra={
-                  <div className="flex justify-center">
-                    <Button
-                      onClick={startSearchScraping}
-                      disabled={isSearchScrapingStarted}
-                      type="primary"
-                      loading={isSearchScrapingStarted}
-                    >
-                      {isSearchScrapingStarted
-                        ? "Scraping..."
-                        : "Start Scraping"}
-                    </Button>
-                  </div>
+                  <>
+                    <Tag color="#108ee9">
+                      Predicted Price :{" "}
+                      {signals.predictions.predicted_price.toFixed(2)}
+                    </Tag>
+                    <Tag color="#f50">
+                      Confidence : {signals.predictions.confidence}
+                    </Tag>
+                    <Tag color="#37960f">
+                      Profit/Loss Percentage : (
+                      {(
+                        ((signals.predictions.predicted_price -
+                          signals.current_price) /
+                          signals.current_price) *
+                        100
+                      ).toFixed(2)}
+                      %)
+                    </Tag>
+                  </>
                 }
               >
                 <p className="mb-2 flex justify-evenly">
@@ -755,7 +713,7 @@ function Dashboard() {
                 </p>
                 <br />
                 <div className="flex justify-center">
-                {pivotPoints.map(tag => (
+                  {pivotPoints.map((tag) => (
                     <Tag color={tag.color} key={tag.label}>
                       {tag.label}: {tag.value}
                     </Tag>
@@ -764,120 +722,7 @@ function Dashboard() {
               </Card>
             )}
             {signals && <>{renderSignals()}</>}
-            {searchResult && searchResult.news && (
-              <Card
-                className="mb-6"
-                title={`News and Sentiment for ${searchResult.symbol}`}
-                bordered
-              >
-                <List
-                  itemLayout="vertical"
-                  dataSource={searchResult.news}
-                  renderItem={(item, index) => (
-                    <List.Item key={index}>
-                      <Typography.Title level={4} style={{ margin: 0 }}>
-                        {item.title}
-                      </Typography.Title>
-                      <Typography.Paragraph>
-                        Published By - <strong>{item.publisher}</strong> on{" "}
-                        <strong>{item.publish_time}</strong>
-                      </Typography.Paragraph>
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Read More
-                      </a>
-                      <br />
-                      <Tag
-                        color={
-                          searchResult.sentiment[index].sentiment === "Positive"
-                            ? "green"
-                            : searchResult.sentiment[index].sentiment ===
-                              "Negative"
-                            ? "red"
-                            : "gold"
-                        }
-                      >
-                        Sentiment: {searchResult.sentiment[index].sentiment}
-                      </Tag>
-                      <Tag color="blue">
-                        Score: {searchResult.sentiment[index].score}
-                      </Tag>
-                    </List.Item>
-                  )}
-                />
-              </Card>
-            )}
           </div>
-
-          <div className="mb-3">
-            <hr className="flex-grow border-t border-dashed border-gray-400 mb-4" />
-            <div className="flex items-center mb-4 space-x-4">
-              <h2 className="text-2xl font-bold flex-grow">Top Gainers</h2>
-              <Button
-                type="primary"
-                onClick={fetchGainers}
-                className="ml-2"
-                ghost
-              >
-                Load
-              </Button>
-            </div>
-            {gainers.length > 0 && (
-              <GainersTable
-                gainers={gainers}
-                isScrapingStarted={isScrapingStarted}
-                selectedGainer={selectedGainer}
-                startScraping={startScraping}
-              />
-            )}
-          </div>
-
-          {news.length > 0 && selectedGainer && (
-            <Card
-              className="mb-6"
-              title={`News and Sentiment for ${selectedGainer}`}
-              bordered
-            >
-              <List
-                itemLayout="vertical"
-                dataSource={news}
-                renderItem={(item, index) => (
-                  <List.Item key={index}>
-                    <Typography.Title level={4} style={{ margin: 0 }}>
-                      {item.title}
-                    </Typography.Title>
-                    <Typography.Paragraph>
-                      Published By - <strong>{item.publisher}</strong> on{" "}
-                      <strong>{item.publish_time}</strong>
-                    </Typography.Paragraph>
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Read More
-                    </a>
-                    <br />
-                    <Tag
-                      color={
-                        sentiment[index].sentiment === "Positive"
-                          ? "green"
-                          : sentiment[index].sentiment === "Negative"
-                          ? "red"
-                          : "gold"
-                      }
-                    >
-                      Sentiment: {sentiment[index].sentiment}
-                    </Tag>
-                    <Tag color="blue">Score: {sentiment[index].score}</Tag>
-                  </List.Item>
-                )}
-              />
-            </Card>
-          )}
         </div>
       </div>
     </div>

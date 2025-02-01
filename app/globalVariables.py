@@ -1,5 +1,15 @@
 app = Flask(__name__)
-talisman = Talisman(app)
+talisman = Talisman(app,content_security_policy={
+    'default-src': "'self'",
+    'style-src': "'self' https://maxcdn.bootstrapcdn.com",
+    'script-src': "'self'",
+    'img-src': "'self' data: https://maxcdn.bootstrapcdn.com",
+    'connect-src': "'self'",
+    'font-src': "'self' https://maxcdn.bootstrapcdn.com",
+    'object-src': "'none'",
+    'media-src': "'self'",
+    'frame-src': "'none'"
+})
 
 load_dotenv()
 
@@ -42,8 +52,18 @@ time_frame_mapping = {
 }
 
 @app.after_request
-def add_csp(response):
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; object-src 'none';"
+def apply_csp(response):
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "style-src 'self' https://maxcdn.bootstrapcdn.com; "
+        "script-src 'self'; "
+        "img-src 'self' data: https://maxcdn.bootstrapcdn.com; "
+        "connect-src 'self'; "
+        "font-src 'self' https://maxcdn.bootstrapcdn.com; "
+        "object-src 'none'; "
+        "media-src 'self'; "
+        "frame-src 'none';"
+    )
     return response
 
 @app.before_request
