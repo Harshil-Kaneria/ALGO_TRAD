@@ -5,8 +5,6 @@ import {
   Card,
   Tag,
   Button,
-  List,
-  Typography,
   notification,
   Select,
   Slider,
@@ -246,7 +244,7 @@ function Dashboard() {
             </p>
             <p className="text-center">
               <hr />
-              Bollinger Bands
+              <strong>Bollinger Bands</strong>
               <hr />
             </p>
             <ul>
@@ -627,14 +625,14 @@ function Dashboard() {
                 title={`${searchResult.company} (${searchResult.symbol})`}
                 extra={
                   <>
-                    <Tag color="#108ee9">
+                    <Tag color="geekblue">
                       Predicted Price :{" "}
                       {signals.predictions.predicted_price.toFixed(2)}
                     </Tag>
-                    <Tag color="#f50">
+                    <Tag color="geekblue">
                       Confidence : {signals.predictions.confidence}
                     </Tag>
-                    <Tag color="#37960f">
+                    <Tag color="geekblue">
                       Profit/Loss Percentage : (
                       {(
                         ((signals.predictions.predicted_price -
