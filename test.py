@@ -20,9 +20,11 @@ def fetch_data(ticker, start='2020-01-01'):
 # Feature Engineering (Regressors)
 def add_regressors(df):
     print("Columns before regressors:\n", df.columns)
-    df['moving_avg'] = df['y'].rolling(7).mean().bfill()
+    df['moving_avg'] = df['y'].rolling(7).mean()
+    df['moving_avg'] = df['moving_avg'].bfill()  # Backward fill to handle NaNs
+
     df['volatility'] = df['y'].rolling(7).std().bfill()
-    
+
     delta = df['y'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -36,10 +38,13 @@ def add_regressors(df):
     
     df['trend_indicator'] = (df['y'] > df['moving_avg']).astype(int)  # Fixed Prophet reserved name
     df['log_volume'] = np.log(df['volume'] + 1)
+    
+    # Ensure there are no NaNs before returning
+    df = df.fillna(0)  # Replace any remaining NaNs with 0
     return df.drop(columns=['volume'])
 
 # Objective function for Bayesian Optimization
-def objective(params):
+def objective(params, df, df_train):
     changepoint_prior, seasonality_prior, interval_width = params
     model = Prophet(
         changepoint_prior_scale=changepoint_prior,
@@ -54,7 +59,7 @@ def objective(params):
     model.add_regressor('log_volume')
     model.fit(df_train)
     future = model.make_future_dataframe(periods=30)
-    future = future.merge(df[['ds', 'volume']], on='ds', how='left')
+    future = future.merge(df[['ds', 'volume']], on='ds', how='left')  # Access volume from df
     future['y'] = np.nan
     future = add_regressors(future)
     forecast = model.predict(future)
@@ -63,22 +68,21 @@ def objective(params):
     return mae
 
 # Train and Forecast
-def train_and_forecast(ticker, periods=30):
+def train_and_forecast(ticker, periods=180):
     global df_train
     df = fetch_data(ticker)
     df_volume = df[['ds', 'volume']].copy()
     df = add_regressors(df)
     df = df.merge(df_volume, on="ds", how="left")
     df_train = df[:-periods].copy()
-    print("Training Data Sample:\n", df_train.head())
     df_test = df[-periods:].copy()
-    print("Testing Data Sample:\n", df_test.head())
 
     df_train['volume'] = df[:-periods]['volume']  # Retain volume in df_train
     df_test['volume'] = df[-periods:]['volume']   # Retain volume in df_test
     
+    # Optimize hyperparameters using Bayesian optimization
     search_space = [(0.001, 0.5), (0.01, 10), (0.8, 0.99)]
-    res = gp_minimize(objective, search_space, n_calls=20, random_state=42)
+    res = gp_minimize(lambda params: objective(params, df, df_train), search_space, n_calls=20, random_state=42)
     best_params = {
         'changepoint_prior_scale': res.x[0],
         'seasonality_prior_scale': res.x[1],
@@ -100,6 +104,12 @@ def train_and_forecast(ticker, periods=30):
     future = add_regressors(future)
     forecast = model.predict(future)
     test_forecast = forecast[-periods:]
+
+    # Inverse log transformation (exp) to get actual values
+    df_test['y'] = np.exp(df_test['y'])
+    test_forecast['yhat'] = np.exp(test_forecast['yhat'])
+    test_forecast['yhat_lower'] = np.exp(test_forecast['yhat_lower'])
+    test_forecast['yhat_upper'] = np.exp(test_forecast['yhat_upper'])
     
     mae = mean_absolute_error(df_test['y'], test_forecast['yhat'])
     mse = mean_squared_error(df_test['y'], test_forecast['yhat'])
@@ -114,3 +124,4 @@ if __name__ == "__main__":
     ticker = "ASIANPAINT.NS"
     df, forecast, test_forecast = train_and_forecast(ticker)
     print(test_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']])
+    print(f"forecast {forecast}")
