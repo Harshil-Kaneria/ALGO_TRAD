@@ -1,171 +1,196 @@
 import yfinance as yf
-import numpy as np
-from datetime import datetime
 import pandas as pd
-from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
-from statsmodels.tsa.arima.model import ARIMA
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from sklearn.linear_model import LinearRegression
-from xgboost import XGBRegressor
-from prophet import Prophet
-import tensorflow as tf
-from arch import arch_model
+import numpy as np
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.model_selection import GridSearchCV, train_test_split
+import xgboost as xgb
+from flask import Flask, request, jsonify
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from sklearn.preprocessing import MinMaxScaler
+import datetime
+import statsmodels.api as sm
+from sklearn.base import BaseEstimator, RegressorMixin
 
-# Helper functions for metrics
-def calculate_mda(actual, predicted):
-    direction_actual = np.sign(np.diff(actual))
-    direction_predicted = np.sign(np.diff(predicted))
-    return np.mean(direction_actual == direction_predicted)
+app = Flask(__name__)
 
-def calculate_metrics(actual, predicted):
-    rmse = np.sqrt(mean_squared_error(actual, predicted))
-    mape = mean_absolute_percentage_error(actual, predicted)
-    accuracy = 1 - mape
-    mda = calculate_mda(actual, predicted)
-    return rmse, accuracy, mda
+# Function to fetch the latest stock data
+def fetch_stock_data(stock_symbol, period='1y', interval='1d'):
+    stock_data = yf.download(stock_symbol, period=period, interval=interval)
+    stock_data['Date'] = stock_data.index
+    stock_data.reset_index(drop=True, inplace=True)
+    return stock_data
 
-# Fetch stock data
-def fetch_data(ticker, start, end):
-    data = yf.download(ticker, start=start, end=end)
-    data['Return'] = data['Close'].pct_change().dropna()
-    return data
+# Function to add additional features (Technical Indicators)
+def add_features(data):
+    data['Moving_Avg_10'] = data['Close'].rolling(window=10).mean()
+    data['Moving_Avg_50'] = data['Close'].rolling(window=50).mean()
+    data['RSI'] = compute_rsi(data['Close'], 14)
+    data['EMA_12'] = data['Close'].ewm(span=12, adjust=False).mean()
+    return data.dropna()
 
-# LSTM model
-def lstm_model(data):
-    # Preprocessing for LSTM
-    from sklearn.preprocessing import MinMaxScaler
-    scaler = MinMaxScaler()
-    data_scaled = scaler.fit_transform(data.reshape(-1, 1))
-    
-    # Create sequences
+# Function to compute Relative Strength Index (RSI)
+def compute_rsi(data, window=14):
+    delta = data.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+# Prepare the data for LSTM model
+def prepare_data_for_lstm(data, time_step=60):
+    features = data[['Close', 'Moving_Avg_10', 'Moving_Avg_50', 'RSI', 'EMA_12']].values
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_data = scaler.fit_transform(features)
+
     X, y = [], []
-    for i in range(60, len(data_scaled)):
-        X.append(data_scaled[i-60:i, 0])
-        y.append(data_scaled[i, 0])
-    X, y = np.array(X), np.array(y)
-    X = np.reshape(X, (X.shape[0], X.shape[1], 1))
-    
-    # Build LSTM model
-    model = tf.keras.Sequential([
-        tf.keras.layers.LSTM(units=50, return_sequences=True, input_shape=(X.shape[1], 1)),
-        tf.keras.layers.LSTM(units=50),
-        tf.keras.layers.Dense(1)
-    ])
-    model.compile(optimizer='adam', loss='mean_squared_error')
-    model.fit(X, y, epochs=10, batch_size=32, verbose=0)
-    
-    # Predict
-    predictions = model.predict(X)
-    predictions = scaler.inverse_transform(predictions)
-    return predictions.flatten()
+    for i in range(time_step, len(scaled_data)):
+        X.append(scaled_data[i-time_step:i])
+        y.append(scaled_data[i, 0])  # Predicting 'Close' price
 
-# GARCH model
-def garch_model(data):
-    model = arch_model(data, vol='Garch', p=1, q=1)
-    res = model.fit(disp='off')
-    return res.forecast(horizon=len(data)).mean.iloc[-1].values
+    X = np.array(X)
+    y = np.array(y)
+    return X, y, scaler
 
-# XGBoost model
-def xgboost_model(data):
-    from sklearn.model_selection import train_test_split
-    X = np.arange(len(data)).reshape(-1, 1)
-    y = data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = XGBRegressor()
-    model.fit(X_train, y_train)
-    return model.predict(X_test)
+# Custom Keras Regressor for GridSearchCV
+class KerasRegressor(BaseEstimator, RegressorMixin):
+    def __init__(self, units=50, dropout_rate=0.2, epochs=10, batch_size=32):
+        self.units = units
+        self.dropout_rate = dropout_rate
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.model = self._build_model()
 
-# ARIMA model
-def arima_model(data):
-    model = ARIMA(data, order=(5, 1, 0))
-    res = model.fit()
-    return res.forecast(steps=len(data))
+    def _build_model(self):
+        model = Sequential()
+        model.add(LSTM(units=self.units, return_sequences=True, input_shape=(None, 5)))
+        model.add(Dropout(self.dropout_rate))
+        model.add(LSTM(units=self.units, return_sequences=False))
+        model.add(Dropout(self.dropout_rate))
+        model.add(Dense(units=1))
+        model.compile(optimizer='adam', loss='mean_squared_error')
+        return model
 
-# SARIMA model
-def sarima_model(data):
-    model = SARIMAX(data, order=(1, 1, 1), seasonal_order=(1, 1, 1, 12))
-    res = model.fit(disp=False)
-    return res.forecast(steps=len(data))
+    def fit(self, X, y):
+        self.model.fit(X, y, epochs=self.epochs, batch_size=self.batch_size, verbose=0)
+        return self
 
-# Regression model
-def regression_model(data):
-    X = np.arange(len(data)).reshape(-1, 1)
-    y = data
-    model = LinearRegression()
-    model.fit(X, y)
-    return model.predict(X)
+    def predict(self, X):
+        return self.model.predict(X).flatten()
 
-# Prophet model
-def prophet_model(data):
-    # Ensure `data` is a Pandas Series with a DateTime index
-    df = pd.DataFrame({'ds': data.index, 'y': data})
-    model = Prophet()
-    model.fit(df)
-    future = model.make_future_dataframe(periods=30)  # Forecast next 30 days
-    forecast = model.predict(future)
-    return forecast['yhat'][:len(data)].values  # Return only the matching forecast values
+    def score(self, X, y):
+        return -self.model.evaluate(X, y, verbose=0)
 
-# Neural Network model (Simple)
-def neural_network_model(data):
-    from sklearn.preprocessing import MinMaxScaler
-    scaler = MinMaxScaler()
-    data_scaled = scaler.fit_transform(data.reshape(-1, 1))
-    
-    X, y = [], []
-    for i in range(60, len(data_scaled)):
-        X.append(data_scaled[i-60:i, 0])
-        y.append(data_scaled[i, 0])
-    X, y = np.array(X), np.array(y)
-    
-    model = tf.keras.Sequential([
-        tf.keras.layers.Dense(50, activation='relu'),
-        tf.keras.layers.Dense(1)
-    ])
-    model.compile(optimizer='adam', loss='mean_squared_error')
-    model.fit(X, y, epochs=10, verbose=0)
-    predictions = model.predict(X)
-    return scaler.inverse_transform(predictions).flatten()
+# Function to tune LSTM hyperparameters (GridSearchCV)
+def tune_lstm_model(X_train, y_train, time_step):
+    model = KerasRegressor()
 
-# Main function
-def main():
-    ticker = "ASIANPAINT.NS"
-    start_date = "2020-01-01"
-    end_date = datetime.today().strftime('%Y-%m-%d')
-    data = fetch_data(ticker, start_date, end_date)['Close']
-
-    models = {
-        "LSTM": lstm_model,
-        "GARCH": garch_model,
-        "XGBoost": xgboost_model,
-        "ARIMA": arima_model,
-        "SARIMA": sarima_model,
-        "Regression": regression_model,
-        "Prophet": prophet_model,
-        "Neural Network": neural_network_model
+    # Define the parameter grid
+    param_grid = {
+        'epochs': [10, 20, 30],
+        'batch_size': [16, 32],
+        'units': [50, 100],
+        'dropout_rate': [0.2, 0.3]
     }
 
-    results = {}
-    for model_name, model_func in models.items():
-        if model_name == "Prophet":
-            predictions = model_func(data)  # Pass full data for Prophet
-        else:
-            predictions = model_func(data.values)
-        
-        # Align lengths: truncate actual data to match predictions
-        min_length = min(len(data.values), len(predictions))
-        actual = data.values[-min_length:]
-        predictions = predictions[-min_length:]
-        
-        rmse, accuracy, mda = calculate_metrics(actual, predictions)
-        results[model_name] = {
-            "RMSE": rmse,
-            "Accuracy": accuracy,
-            "MDA": mda
-        }
+    # Perform grid search
+    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=3, verbose=1, scoring='neg_mean_squared_error')
+    grid_search.fit(X_train, y_train)
 
-    best_model = max(results, key=lambda x: results[x]["Accuracy"])
-    print(f"Best Model: {best_model}")
-    print(f"Metrics: {results[best_model]}")
+    print(f"Best Hyperparameters: {grid_search.best_params_}")
+    return grid_search.best_estimator_
 
-if __name__ == "__main__":
-    main()
+# Recursive Rolling Forecasting Function with LSTM
+def rolling_forecast(data, forecast_days=5, time_step=60):
+    predictions = []
+
+    # Prepare data for LSTM
+    X, y, scaler = prepare_data_for_lstm(data, time_step)
+
+    # Split the data into training and testing sets
+    train_size = int(len(X) * 0.8)
+    X_train, X_test = X[:train_size], X[train_size:]
+    y_train, y_test = y[:train_size], y[train_size:]
+
+    # Tune LSTM hyperparameters using GridSearch
+    best_lstm_model = tune_lstm_model(X_train, y_train, time_step)
+
+    # Predict future stock prices
+    for i in range(forecast_days):
+        last_sequence = X_test[-1].reshape(1, X_test.shape[1], X_test.shape[2])
+        predicted_price = best_lstm_model.predict(last_sequence)
+        predictions.append(scaler.inverse_transform(predicted_price.reshape(-1, 1))[0][0])
+        # Add the new prediction into the X_test data for the next prediction
+        X_test = np.append(X_test, predicted_price.reshape(1, -1), axis=0)
+
+    return predictions
+
+# XGBoost model implementation
+def xgboost_forecast(data, forecast_days=5):
+    X = data[['Close', 'Moving_Avg_10', 'Moving_Avg_50', 'RSI', 'EMA_12']].values
+    y = data['Close'].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+
+    model = xgb.XGBRegressor(objective="reg:squarederror", n_estimators=1000, max_depth=10, learning_rate=0.01)
+    model.fit(X_train, y_train)
+
+    predictions = model.predict(X_test)
+
+    forecast_prices = []
+    for i in range(forecast_days):
+        forecast_prices.append(predictions[i])
+
+    return forecast_prices
+
+# ARIMA model implementation
+def arima_forecast(data, forecast_days=5):
+    model = sm.tsa.ARIMA(data['Close'], order=(5, 1, 0))
+    model_fit = model.fit()
+    forecast = model_fit.forecast(steps=forecast_days)
+    return forecast
+
+# API Endpoint for stock prediction
+@app.route('/search', methods=['GET'])
+def stock_prediction():
+    stock_symbol = request.args.get('symbol', default='DMART.NS', type=str)
+
+    # Fetch and process stock data
+    stock_data = fetch_stock_data(stock_symbol)
+    stock_data = add_features(stock_data)
+
+    # Perform rolling forecast (5 days in the future)
+    forecast_prices_lstm = rolling_forecast(stock_data)
+    forecast_prices_xgboost = xgboost_forecast(stock_data)
+    forecast_prices_arima = arima_forecast(stock_data)
+
+    # Calculate metrics for LSTM model
+    rmse_lstm = np.sqrt(mean_squared_error(stock_data['Close'][-len(forecast_prices_lstm):], forecast_prices_lstm))
+    mds_lstm = mean_absolute_error(stock_data['Close'][-len(forecast_prices_lstm):], forecast_prices_lstm)
+
+    # Calculate metrics for XGBoost model
+    rmse_xgboost = np.sqrt(mean_squared_error(stock_data['Close'][-len(forecast_prices_xgboost):], forecast_prices_xgboost))
+    mds_xgboost = mean_absolute_error(stock_data['Close'][-len(forecast_prices_xgboost):], forecast_prices_xgboost)
+
+    # Calculate metrics for ARIMA model
+    rmse_arima = np.sqrt(mean_squared_error(stock_data['Close'][-len(forecast_prices_arima):], forecast_prices_arima))
+    mds_arima = mean_absolute_error(stock_data['Close'][-len(forecast_prices_arima):], forecast_prices_arima)
+
+    # Prepare response
+    response = {
+        "LSTM RMSE": rmse_lstm,
+        "LSTM MDS": mds_lstm,
+        "XGBoost RMSE": rmse_xgboost,
+        "XGBoost MDS": mds_xgboost,
+        "ARIMA RMSE": rmse_arima,
+        "ARIMA MDS": mds_arima,
+        "CURRENT_PRICE": stock_data['Close'].iloc[-1],
+        "LSTM_Forecast": forecast_prices_lstm,
+        "XGBoost_Forecast": forecast_prices_xgboost,
+        "ARIMA_Forecast": forecast_prices_arima
+    }
+
+    return jsonify(response)
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
